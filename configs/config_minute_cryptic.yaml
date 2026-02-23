@@ -8,7 +8,7 @@ llm:
   model: claude-sonnet-4-5-20250929
   temperature: 0.7
   max_tokens: 6000
-  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker. You never say things not supported by evidence. You are cold and calculating and never make qualitative statements like \"Seems promising!\". You always enumerate all logical possibilities, never just a set of examples. Remember: the user will not help you solve the problem!"
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker. You never say things not supported by evidence. You are cold and calculating and never make qualitative statements like \"Seems promising!\". You always enumerate all logical possibilities, never just a set of examples. You only generate one \"thought\" per turn and carefully follow instructions regarding when to stop."
 
 # Prompt templates by phase.
 # These contain ONLY the new instruction for each step.
@@ -181,8 +181,45 @@ sort_options_prompt: |
 leaf_check_prompt: |
   Your job right now is to check in on the above progress by another worker. Have they proposed an answer yet to the original problem above?
   Respond with exactly "YES" or "NO".
-
-# Context is prepended by the code.
+refine_parent_class_prompt: |
+  Another agent generated the above text. Your job is to do cleanup and refinement to improve the output quality. Your response will be used as a drop-in replacement, so do not output any extraneous text. Guidelines:
+  -- Only refine the last section of text, as indicated by the "EDIT FROM HERE -->"  tag
+  -- Carefully examine the instructions contained in the preceding context. Then,
+  -- Correct any incorrect formatting
+  -- Remove any text that is off-topic, meandering, or not crucial to remember
+  -- Try to find the most concise way to express the ideas without losing any information
+  -- Whenever possibilities are being listed, fill in any missing items you can think of to make sure they are thorough
+  -- Fix any logical errors or inconsistencies
+  -- Find ways to consolidate related ideas whenever possible
+  -- In all cases, be thorough yet terse
+refine_search_strategy_prompt: |
+  Another agent generated the above text. Your job is to do cleanup and refinement to improve the output quality. Your response will be used as a drop-in replacement, so do not output any extraneous text. Guidelines:
+  -- Only refine the last section of text, as indicated by the "EDIT FROM HERE -->"  tag
+  -- Carefully examine the instructions contained in the preceding context. Then,
+  -- Correct any incorrect formatting
+  -- Remove any text that is off-topic, meandering, or not crucial to remember
+  -- Try to find the most concise way to express the ideas without losing any information
+  -- Whenever possibilities are being listed, fill in any missing items you can think of to make sure they are thorough
+  -- Fix any logical errors or inconsistencies
+  -- Find ways to consolidate related ideas whenever possible
+  -- In all cases, be thorough yet terse
+refine_solve_step_prompt: |
+  Another agent generated the above text. Your job is to do cleanup and refinement to improve the output quality. Your response will be used as a drop-in replacement, so do not output any extraneous text. Guidelines:
+  -- Only refine the last section of text, as indicated by the "EDIT FROM HERE -->"  tag
+  -- Don't delete any information in the goal tree, e.g., replacing subgoals with ellipses. The agent must be able to see the full tree.
+  -- Don't delete any information about which recommendation to proceed with. The agent needs this info.
+  -- Carefully examine the instructions contained in the preceding context. Then,
+  -- Correct any incorrect formatting
+  -- Fix any logical errors or inconsistencies
+  -- Remove any text that is off-topic, meandering, or not crucial to remember
+  -- If the agent says something has been ruled out, be highly skeptical and think hard about missed possibilities.
+  -- Be a counterweight to the other agent's tendency to narrow in on one possibility too early. Be strict and don't allow this. Stick to the plan.
+  -- The agent is suppose to stop every time it propose a list of recommendations, but sometimes it keeps going. If this happens, roll back to the original one and omit any subsequent ones.
+  -- Make sure proposed "tests" are quantitative ways to measure whether a subgoal is completed
+  -- Re-express ideas concisely but without losing any information, consolidating when possible
+  -- Whenever possibilities are being listed, identify missing items to add
+  -- Pay special attention to the hypotheses: It is absolutely critical to track all hypotheses that have been thought of and include them in the list of hypotheses. Scour the text to make sure you catch everything and include it, as the other agent often misses them.
+  -- In all cases, be thorough yet terse
 revision_parent_prompt: |
   None of those ended up working. Can you think of any possibilities you missed in your list(s) above? Always list things exhaustively (don't use "etc.").
 
@@ -197,8 +234,6 @@ revision_solve_prompt: |
   In your thinking, carefully consider your original enumeration strategies.
 
   Provide a revised output below, which I can swap out for the original, as is, with not modification. Don't include anything that would become a weird non sequitur.
-
-# Prompt to extract a final answer from a leaf node.
 solution_extract_prompt: |
   Extract and state the final solution. No extra characters; just the solution.
 

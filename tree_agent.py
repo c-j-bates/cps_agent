@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 class Phase(Enum):
     PARENT_CLASS = "parent_class"   # depth 0
     STRATEGY = "strategy"           # depth 1
+    BEGIN_SOLVE = "begin_solve"     # first solve step (under a strategy node)
     SOLVE = "solve"                 # depth 2+
 
 
@@ -88,6 +89,11 @@ class AgentConfig:
     revision_strategy_prompt: str = ""
     revision_solve_prompt: str = ""
 
+    # Refinement prompts (one per phase; empty = skip refinement for that phase)
+    refine_parent_class_prompt: str = ""
+    refine_search_strategy_prompt: str = ""
+    refine_solve_step_prompt: str = ""
+
     # Domain hints injected into begin_solve_prompt
     domain_hints: str = ""
 
@@ -115,19 +121,30 @@ class AgentConfig:
             revision_parent_prompt=raw.get("revision_parent_prompt", ""),
             revision_strategy_prompt=raw.get("revision_strategy_prompt", ""),
             revision_solve_prompt=raw.get("revision_solve_prompt", ""),
+            refine_parent_class_prompt=raw.get("refine_parent_class_prompt", ""),
+            refine_search_strategy_prompt=raw.get("refine_search_strategy_prompt", ""),
+            refine_solve_step_prompt=raw.get("refine_solve_step_prompt", ""),
             domain_hints=raw.get("domain_hints", ""),
             tools_config=raw.get("tools", {}),
             llm_config=raw.get("llm", {}),
         )
 
-    def get_revision_prompt(self, depth: int) -> str:
-        phase = phase_for_depth(depth)
+    def get_revision_prompt(self, phase: "Phase") -> str:
         if phase == Phase.PARENT_CLASS:
             return self.revision_parent_prompt
         elif phase == Phase.STRATEGY:
             return self.revision_strategy_prompt
-        else:
+        else:  # BEGIN_SOLVE and SOLVE both use the solve revision prompt
             return self.revision_solve_prompt
+
+    def get_refine_prompt(self, phase: "Phase") -> str:
+        """Return the refinement prompt for the given phase, or '' to skip."""
+        if phase == Phase.PARENT_CLASS:
+            return self.refine_parent_class_prompt
+        elif phase == Phase.STRATEGY:
+            return self.refine_search_strategy_prompt
+        else:  # BEGIN_SOLVE and SOLVE both use the solve refinement prompt
+            return self.refine_solve_step_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +175,7 @@ class NodeStatus(Enum):
 @dataclass
 class Node:
     name: str
-    content: str              # LLM response that produced this node
+    content: str              # LLM response (refined if refinement was applied)
     depth: int
     phase: Phase
     prompt: str = ""          # The instruction sent to the LLM for this node
@@ -168,6 +185,7 @@ class Node:
     revision_count: int = 0
     max_revisions: int = 3
     failure_reason: str = ""
+    original_content: str = ""  # Pre-refinement response (empty if no refinement)
     input_tokens: int = 0
     output_tokens: int = 0
     wall_time_seconds: float = 0.0
@@ -335,6 +353,45 @@ class SearchAgent:
             node.output_tokens = usage.output_tokens
             node.wall_time_seconds = usage.wall_time_seconds
 
+    # -- Refinement --
+
+    def _refine_node(self, node: Node) -> None:
+        """Refine the node's content using the phase-appropriate refinement prompt.
+
+        Builds full context up to this node, inserts an "EDIT FROM HERE -->"
+        marker at the start of the most recent response, and asks the LLM to
+        produce a drop-in replacement.  The original response is preserved in
+        node.original_content; node.content is replaced with the refined text.
+        """
+        refine_prompt = self.config.get_refine_prompt(node.phase)
+        if not refine_prompt:
+            return
+
+        # Build context with the edit marker on the last response
+        chain = node.get_context_chain()
+        parts = []
+        for i, n in enumerate(chain):
+            if n.prompt:
+                parts.append(f"[prompt → {n.name}] {n.prompt}")
+            if n.content:
+                if n is node:
+                    # Mark the target response for editing
+                    parts.append(f"[{n.name}] EDIT FROM HERE -->\n{n.content}")
+                else:
+                    parts.append(f"[{n.name}] {n.content}")
+
+        context = "\n\n".join(parts)
+        prompt = context + "\n\n" + refine_prompt
+        refined = self.llm(prompt)
+
+        # Store original, swap in refined
+        node.original_content = node.content
+        node.content = refined
+
+        self._record_usage_on_node(node, accumulate=True)
+        self._log_call(f"refine({node.name})", "refine", prompt, refined)
+        logger.info(f"Refined node {node.name} (original len={len(node.original_content)}, refined len={len(refined)})")
+
     # -- Public API --
 
     def solve(self, problem: str) -> str | None:
@@ -354,7 +411,8 @@ class SearchAgent:
         )
         self._record_usage_on_node(self.root)
         self._log_call("root", "parent_class", instruction, root_response)
-        logger.info(f"Phase 1 (parent_class) complete. Response length: {len(root_response)}")
+        self._refine_node(self.root)
+        logger.info(f"Phase 1 (parent_class) complete. Response length: {len(self.root.content)}")
 
         self._dfs(self.root)
         return self.solution
@@ -412,70 +470,85 @@ class SearchAgent:
 
     def _expand(self, node: Node) -> None:
         """
-        Generate children for this node using the phase-appropriate prompt.
+        Call the phase-appropriate LLM prompt, store the response on the node
+        (or on an intermediate child when the node already has content), then
+        parse numbered options from the response and attach them as children.
 
-        Every branch creates an intermediate *response node* that captures the
-        LLM's prompt/response, then parses numbered options from the response
-        and attaches them as children of that response node.
-
-        Routing:
-          depth 0 (PARENT_CLASS) → search_strategy_prompt → response node
-              "strategy_list", children are the individual strategies.
-          depth 1 (STRATEGY) → begin_solve_prompt → response node
-              "solve_start", children are the first choice-point options.
-          depth 2+ (SOLVE) → continuation_prompt → response node
-              "continuation", children are the next choice-point options.
+        Routing by current node phase:
+          PARENT_CLASS (root — already has content):
+              Call search_strategy_prompt, create an intermediate
+              "strategy_list" child (phase=STRATEGY) to hold the response,
+              then parse strategy options as its children.
+          STRATEGY (empty option node under strategy_list):
+              Call begin_solve_prompt, store response directly on this node
+              and promote its phase to BEGIN_SOLVE, then parse solve options
+              as children.
+          BEGIN_SOLVE / SOLVE (empty option node):
+              Call continuation_prompt, store response directly on this node,
+              then parse continuation options as children.
         """
-        # Dispatch to the phase-appropriate LLM call
-        phase_dispatch = {
-            Phase.PARENT_CLASS: (self._call_search_strategy, "strategy_list"),
-            Phase.STRATEGY: (self._call_begin_solve, "solve_start"),
-            Phase.SOLVE: (self._call_continuation, "continuation"),
-        }
-        call, response_name = phase_dispatch[node.phase]
-        instruction, response = call(node)
-        # Grab usage from the phase call before _sort_options makes another call
-        phase_usage = self._get_latest_usage()
+        if node.phase == Phase.PARENT_CLASS:
+            # Root already has content — need an intermediate child node
+            # to hold the search-strategy response.
+            instruction, response = self._call_search_strategy(node)
+            phase_usage = self._get_latest_usage()
+            target = self._create_child_node(
+                parent=node,
+                name="strategy_list",
+                phase=Phase.STRATEGY,
+            )
+            target.prompt = instruction
+            target.content = response
+            if phase_usage:
+                target.input_tokens = phase_usage.input_tokens
+                target.output_tokens = phase_usage.output_tokens
+                target.wall_time_seconds = phase_usage.wall_time_seconds
 
-        response_node = self._create_response_node(
-            parent=node,
-            name=response_name,
-            instruction=instruction,
-            response=response,
-        )
-        if phase_usage:
-            response_node.input_tokens = phase_usage.input_tokens
-            response_node.output_tokens = phase_usage.output_tokens
-            response_node.wall_time_seconds = phase_usage.wall_time_seconds
-        self._attach_parsed_children(response_node, response)
+        elif node.phase == Phase.STRATEGY:
+            # Empty option node — fill in with begin_solve output
+            instruction, response = self._call_begin_solve(node)
+            node.prompt = instruction
+            node.content = response
+            node.phase = Phase.BEGIN_SOLVE
+            self._record_usage_on_node(node)
+            target = node
+
+        else:
+            # BEGIN_SOLVE or SOLVE — fill in with continuation output
+            instruction, response = self._call_continuation(node)
+            node.prompt = instruction
+            node.content = response
+            self._record_usage_on_node(node)
+            target = node
+
+        self._refine_node(target)
+        self._attach_parsed_children(target, target.content)
         node.status = NodeStatus.EXPANDED
 
-    def _create_response_node(
-        self, parent: Node, name: str, instruction: str, response: str,
+    def _create_child_node(
+        self, parent: Node, name: str, phase: Phase,
     ) -> Node:
-        """Create an intermediate node that captures an LLM prompt/response.
+        """Create a child node under *parent* with the given phase.
 
-        The node sits between *parent* and whatever children are parsed from
-        the response.  It keeps the same depth and phase as its parent so that
-        the overall tree depth numbering is not affected.  It is immediately
-        marked EXPANDED so DFS will recurse into its children.
+        Used for the strategy_list intermediate node (root already has
+        content and cannot hold a second response).  The child is
+        immediately marked EXPANDED so DFS will recurse into its children.
         """
-        response_node = Node(
+        child = Node(
             name=name,
-            content=response,
-            prompt=instruction,
+            content="",
             depth=parent.depth,
-            phase=parent.phase,
+            phase=phase,
             parent=parent,
             max_revisions=self.config.max_revisions,
         )
-        parent.children[name] = response_node
-        response_node.status = NodeStatus.EXPANDED
+        parent.children[name] = child
+        child.status = NodeStatus.EXPANDED
         logger.info(
-            f"Created response node {name} under {parent.name} "
-            f"(depth={parent.depth}, phase={parent.phase.value})"
+            f"Created child node {name} under {parent.name} "
+            f"(depth={parent.depth}, phase={phase.value})"
         )
-        return response_node
+        return child
 
     def _attach_parsed_children(self, node: Node, response: str) -> None:
         """Use sort_options_prompt to determine which children to create and
@@ -617,6 +690,7 @@ class SearchAgent:
         rev_node = node.create_revision(revision_content)
         rev_node.prompt = revision_instruction
         self._record_usage_on_node(rev_node)
+        self._refine_node(rev_node)
         return self._dfs(rev_node)
 
     def _handle_exhausted_node(self, node: Node) -> bool:
@@ -624,7 +698,7 @@ class SearchAgent:
         return self._attempt_revision(node, reason)
 
     def _generate_revision(self, node: Node, failure_reason: str) -> tuple[str, str]:
-        template = self.config.get_revision_prompt(node.depth)
+        template = self.config.get_revision_prompt(node.phase)
         # instruction = template.format(failure_reason=failure_reason)
         instruction = template  # No variables for now
         context = node.get_context_string()
@@ -636,7 +710,7 @@ class SearchAgent:
     # -- LLM interactions --
 
     def _is_leaf(self, node: Node) -> bool:
-        if node.phase != Phase.SOLVE:
+        if node.phase not in (Phase.BEGIN_SOLVE, Phase.SOLVE):
             return False
         if not node.content:
             return False
