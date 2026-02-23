@@ -1,0 +1,51 @@
+# Problem dataset for the tree search agent.
+#
+# Each entry has:
+#   id:       Unique identifier used with --problem-id on the command line.
+#   problem:  The problem statement passed to the agent.
+#   solution: Either a literal answer string (matched exactly after stripping),
+#             or a Python function body starting with "def check(problem, solution):"
+#             that returns True/False.
+
+- id: minute_cryptic_0
+  problem: "\"Baa, Baa, Black Sheep\" karaoke practice progressing bit-by-bit (5)"
+  solution: |
+    def check(problem, solution):
+        return solution.lower() == "bleat"
+
+- id: life_universe
+  problem: What is the answer to life, the universe, and everything?
+  solution: "42"
+
+- id: two_plus_two
+  problem: What is 2 + 2?
+  solution: "4"
+
+- id: largest_planet
+  problem: What is the largest planet in our solar system?
+  solution: Jupiter
+
+- id: anagram
+  problem: >
+    Rearrange the letters of 'listen' to form another English word.
+  solution: silent
+
+- id: river_crossing
+  problem: >
+    A farmer needs to cross a river with a wolf, a goat, and a cabbage.
+    The boat can only carry the farmer and one item. If left alone, the wolf
+    will eat the goat, and the goat will eat the cabbage. How can the farmer
+    get everything across safely?
+  solution: |
+    def check(problem, solution):
+        s = solution.lower()
+        # Must mention bringing the goat back at some point
+        return 'goat' in s and ('back' in s or 'return' in s)
+
+- id: water_jugs
+  problem: >
+    You have a 3-gallon jug and a 5-gallon jug. How do you measure exactly
+    4 gallons of water?
+  solution: |
+    def check(problem, solution):
+        return '4' in solution and ('gallon' in solution.lower() or 'jug' in solution.lower())

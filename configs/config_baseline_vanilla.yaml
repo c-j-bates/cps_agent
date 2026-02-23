@@ -1,0 +1,15 @@
+# Baseline: Vanilla
+# Agent class: VanillaAgent
+# Single prompt: "Problem: {problem}" — no scaffolding.
+
+agent_class: vanilla
+
+llm:
+  provider: claude
+  model: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 6000
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker. You never say things not supported by evidence. You always enumerate all logical possibilities, never just a set of examples. Remember: the user will not help you solve the problem!"
+
+solution_extract_prompt: |
+  Extract and state the final solution. No extra characters; just the solution.
