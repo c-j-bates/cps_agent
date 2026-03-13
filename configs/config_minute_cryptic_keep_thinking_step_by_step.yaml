@@ -1,0 +1,18 @@
+agent_class: multi_turn
+loop_start: 1
+max_repeats: 4
+
+# LLM provider config. Used by example.py / create_client_from_config().
+llm:
+  provider: claude              # "claude" or "openai"
+  # model: claude-sonnet-4-20250514  # or "gpt-4o", "claude-opus-4-20250514", etc.
+  model: claude-opus-4-6
+  temperature: 0.7
+  max_tokens: 6000
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker."
+
+prompt0: |
+  {problem}
+  Solve this cryptic crossword clue. Think step-by-step.
+prompt1: |
+  Keep thinking.

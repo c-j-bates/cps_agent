@@ -23,9 +23,10 @@ import csv
 import logging
 import re
 import yaml
+from datetime import datetime
 from pathlib import Path
 
-from tree_agent import AgentConfig, SearchAgent
+from agents import AgentConfig
 from baseline_agents import create_agent
 from llm_clients import create_client, LLMCallRecord
 from experiment_logger import ExperimentLogger
@@ -170,17 +171,21 @@ def load_problems_from_csv(path: str | Path) -> dict[str, dict]:
 def create_client_from_config(
     config: AgentConfig,
     provider_override: str | None = None,
+    model_override: str | None = None,
+    thinking: bool | str = False,
 ):
     """Create an LLM client from an AgentConfig, passing through tools_config."""
     llm_cfg = config.llm_config
     provider = provider_override or llm_cfg.get("provider", "claude")
+    model = model_override or llm_cfg.get("model")
     return create_client(
         provider=provider,
-        model=llm_cfg.get("model"),
+        model=model,
         temperature=llm_cfg.get("temperature", 0.7),
         max_tokens=llm_cfg.get("max_tokens", 4096),
         system_prompt=llm_cfg.get("system_prompt", ""),
         tools_config=config.tools_config,
+        thinking=thinking,
     )
 
 
@@ -208,6 +213,12 @@ def main():
                         help="ID of the problem to solve (from the dataset)")
     parser.add_argument("--list-problems", action="store_true",
                         help="List available problems and exit")
+    parser.add_argument("--model",
+                        help="Override the LLM model name from the config")
+    parser.add_argument("--thinking", nargs="?", const="high", default=False,
+                        metavar="EFFORT",
+                        help="Enable extended thinking (adaptive mode, Anthropic only). "
+                             "Optional effort: low, medium, high (default), max (Opus 4.6 only)")
     parser.add_argument("--log-dir", default="experiment_logs",
                         help="Directory for experiment log files (default: experiment_logs)")
     args = parser.parse_args()
@@ -242,12 +253,15 @@ def main():
     if args.provider == "mock":
         llm = MockLLM()
     else:
-        llm = create_client_from_config(config, provider_override=args.provider)
+        llm = create_client_from_config(config, provider_override=args.provider, model_override=args.model, thinking=args.thinking)
 
-    # Set up experiment logger
+    # Set up experiment logger — each run gets its own subdirectory
     llm_cfg = config.llm_config
-    model = llm_cfg.get("model", "mock") if args.provider != "mock" else "mock"
-    exp_logger = ExperimentLogger(log_dir=args.log_dir)
+    model = args.model or llm_cfg.get("model", "mock") if args.provider != "mock" else "mock"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_id = problem_id.replace("/", "_").replace(" ", "_")
+    run_dir = Path(args.log_dir) / f"{timestamp}_{safe_id}"
+    exp_logger = ExperimentLogger(log_dir=str(run_dir))
     exp_logger.initialize(
         problem_id=problem_id,
         problem=problem,

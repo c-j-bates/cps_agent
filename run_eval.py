@@ -43,6 +43,18 @@ def main():
         help="Max number of samples to evaluate",
     )
     parser.add_argument(
+        "--model",
+        default=None,
+        help="Override the LLM model name from the config",
+    )
+    parser.add_argument(
+        "--thinking",
+        nargs="?", const="high", default=False,
+        metavar="EFFORT",
+        help="Enable extended thinking (adaptive mode, Anthropic only). "
+             "Optional effort: low, medium, high (default), max (Opus 4.6 only)",
+    )
+    parser.add_argument(
         "--log-dir",
         default=None,
         help="Directory for Inspect logs (default: ./logs)",
@@ -52,6 +64,8 @@ def main():
     task = problem_eval(
         dataset_path=args.dataset,
         config_path=args.config,
+        model_override=args.model or "",
+        thinking=args.thinking,
     )
 
     eval_kwargs = {}

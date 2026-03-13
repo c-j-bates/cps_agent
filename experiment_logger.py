@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TextIO, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from tree_agent import AgentConfig, Node
+    from agents import AgentConfig, Node
     from llm_clients import LLMCallRecord
 
 logger = logging.getLogger(__name__)

@@ -1,0 +1,2 @@
+problem,solution
+"Let $T=(V,E)$ be a finite tree with $|V|=n$. A (vertex) set $F\subseteq V$ is called a fort if $F\neq\varnothing$ and every vertex $v\in V\setminus F$ has either $0$ or at least $2$ neighbors in $F$. A fort $F$ is minimal if it contains no proper subset that is also a fort. Let $m(T)$ denote the number of minimal forts of $T$. What universal lower bound (as a function of $n$) is guaranteed for $m(T)$ over all trees on $n$ vertices? The function is of the form $\lceil f(n) \rceil$. Determine f(n).","n/3"

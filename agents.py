@@ -24,11 +24,14 @@ get_context_string() interleaves prompts and responses in the chain.
 
 from __future__ import annotations
 
+import ast
+import json
 import re
 import yaml
 import logging
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from pathlib import Path
 from typing import Protocol
 
 logger = logging.getLogger(__name__)
@@ -97,8 +100,31 @@ class AgentConfig:
     # Domain hints injected into begin_solve_prompt
     domain_hints: str = ""
 
+    # CartesianProductAgent-specific prompts
+    test_hypothesis_prompt: str = ""
+    revise_generator_prompt: str = ""
+    refine_begin_solve_prompt: str = ""
+
+    # CartesianProductAgent-specific settings
+    # Per-phase refinement toggles (each independently controllable)
+    enable_refine_parent_class: bool = True
+    enable_refine_search_strategy: bool = True
+    enable_refine_begin_solve: bool = False
+    refine_parent_class_iterations: int = 1  # How many refinement passes on parent_class
+    refine_begin_solve_iterations: int = 1  # How many refinement passes on begin_solve
+    hypotheses_per_batch: int = 3      # Hypotheses to sample per iteration
+    max_iterations: int = 10           # Max generate-test-revise loops
+
     # Tools config (e.g. code_execution settings)
     tools_config: dict = field(default_factory=dict)
+
+    # Single-turn baseline prompt template (may contain {problem})
+    prompt: str = ""
+
+    # Multi-turn baseline: ordered prompt templates (prompt0, prompt1, …)
+    prompts: dict = field(default_factory=dict)  # {0: str, 1: str, …}
+    loop_start: int | None = None  # index of prompt that begins the loop
+    max_repeats: int = 3  # how many times the loop body repeats
 
     # Raw LLM section (kept for create_client_from_config)
     llm_config: dict = field(default_factory=dict)
@@ -107,6 +133,15 @@ class AgentConfig:
     def from_yaml(cls, path: str) -> "AgentConfig":
         with open(path) as f:
             raw = yaml.safe_load(f)
+
+        # Collect numbered prompts (prompt0, prompt1, …) into an int-keyed dict
+        import re as _re
+        prompts = {}
+        for key in raw:
+            m = _re.fullmatch(r"prompt(\d+)", key)
+            if m:
+                prompts[int(m.group(1))] = raw[key]
+
         return cls(
             max_revisions=raw.get("max_revisions", 3),
             max_depth=raw.get("max_depth", 10),
@@ -125,8 +160,24 @@ class AgentConfig:
             refine_search_strategy_prompt=raw.get("refine_search_strategy_prompt", ""),
             refine_solve_step_prompt=raw.get("refine_solve_step_prompt", ""),
             domain_hints=raw.get("domain_hints", ""),
+            test_hypothesis_prompt=raw.get("test_hypothesis_prompt", ""),
+            revise_generator_prompt=raw.get("revise_generator_prompt", ""),
+            refine_begin_solve_prompt=raw.get("refine_begin_solve_prompt", ""),
+            enable_refine_parent_class=raw.get("enable_refine_parent_class",
+                                               raw.get("enable_refinement", True)),
+            enable_refine_search_strategy=raw.get("enable_refine_search_strategy",
+                                                  raw.get("enable_refinement", True)),
+            enable_refine_begin_solve=raw.get("enable_refine_begin_solve", False),
+            refine_parent_class_iterations=raw.get("refine_parent_class_iterations", 1),
+            refine_begin_solve_iterations=raw.get("refine_begin_solve_iterations", 1),
+            hypotheses_per_batch=raw.get("hypotheses_per_batch", 3),
+            max_iterations=raw.get("max_iterations", 10),
             tools_config=raw.get("tools", {}),
             llm_config=raw.get("llm", {}),
+            prompt=raw.get("prompt", ""),
+            prompts=prompts,
+            loop_start=raw.get("loop_start", None),
+            max_repeats=raw.get("max_repeats", 3),
         )
 
     def get_revision_prompt(self, phase: "Phase") -> str:
@@ -275,7 +326,7 @@ class Node:
 # Agent
 # ---------------------------------------------------------------------------
 
-class SearchAgent:
+class GoalTreeAgent:
     """
     Depth-first tree search agent with 3-phase prompting.
 
@@ -749,3 +800,599 @@ class SearchAgent:
         print(f"{prefix}{node.name} ({phase_tag}|{status}){rev_info}: {content_preview}...")
         for child in node.children.values():
             self.print_tree(child, indent + 1)
+
+
+# ---------------------------------------------------------------------------
+# CartesianProductAgent — generate-test-revise loop
+# ---------------------------------------------------------------------------
+
+class CartesianProductAgent:
+    """
+    Generate-test-revise agent with linear hypothesis loop.
+
+    Phases 1-2 (parent_class, optionally search_strategy) run as a linear
+    conversation. Phase 3 (begin_solve) asks the LLM to produce a variables
+    dict mapping variable names to lists of possible values. The agent then
+    builds a generator via itertools.product and enters a loop:
+
+      1. Sample hypotheses_per_batch hypotheses from the product generator
+      2. For each hypothesis, call LLM with test_hypothesis_prompt
+      3. After the batch, call LLM with revise_generator_prompt
+      4. Check termination (ground truth match or max_iterations)
+
+    All hypothesis test results are stored in a JSON database file.
+    All variable dict versions are appended to a history file.
+    """
+
+    def __init__(
+        self,
+        config: AgentConfig,
+        llm: LLMClient,
+        ground_truth: GroundTruthChecker,
+        logger=None,
+    ):
+        self.config = config
+        self.llm = llm
+        self.ground_truth = ground_truth
+        self.exp_logger = logger  # ExperimentLogger or None
+        self.problem: str = ""
+        self.solution: str | None = None
+
+        # Runtime state
+        self._context_parts: list[tuple[str, str]] = []
+        self._hypothesis_db: list[dict] = []
+        self._variables_dict: dict = {}          # Current {var: [vals]} dict
+        self._variables_versions: list[dict] = []  # History of all versions
+        self._hypotheses_tested: int = 0
+
+    # -- Usage tracking / logging helpers --
+
+    def _get_latest_usage(self):
+        log = getattr(self.llm, 'usage_log', None)
+        if log:
+            return log[-1]
+        return None
+
+    def _log_call(self, node_name: str, purpose: str, prompt: str, response: str):
+        if self.exp_logger is not None:
+            self.exp_logger.log_llm_call(
+                node_name=node_name,
+                purpose=purpose,
+                prompt=prompt,
+                response=response,
+                usage=self._get_latest_usage(),
+            )
+
+    # -- Context management --
+
+    def _build_context_string(self) -> str:
+        return "\n\n".join(f"{label} {text}" for label, text in self._context_parts)
+
+    # -- Phase runner --
+
+    def _run_phase(
+        self,
+        phase_name: str,
+        prompt_template: str,
+        format_kwargs: dict,
+        refine_prompt_text: str = "",
+    ) -> str:
+        """Run a single phase: format prompt, prepend context, call LLM, optionally refine.
+
+        Args:
+            phase_name: label for logging and context
+            prompt_template: the prompt template (may have {fields})
+            format_kwargs: substitutions for the template
+            refine_prompt_text: if non-empty, the refinement prompt to apply
+        Returns:
+            The (possibly refined) LLM response.
+        """
+        instruction = prompt_template.format(**format_kwargs) if format_kwargs else prompt_template
+
+        context = self._build_context_string()
+        full_prompt = (context + "\n\n" + instruction) if context else instruction
+
+        response = self.llm(full_prompt)
+        self._log_call(phase_name, phase_name, full_prompt, response)
+
+        if refine_prompt_text:
+            # Build context with EDIT FROM HERE marker on the last response
+            refine_context = self._build_context_string()
+            refine_full = (
+                (refine_context + "\n\n" if refine_context else "")
+                + f"[{phase_name}] EDIT FROM HERE -->\n{response}"
+                + "\n\n" + refine_prompt_text
+            )
+            refined_response = self.llm(refine_full)
+            self._log_call(f"refine({phase_name})", "refine", refine_full, refined_response)
+            response = refined_response
+
+        self._context_parts.append((f"[prompt → {phase_name}]", instruction))
+        self._context_parts.append((f"[{phase_name}]", response))
+
+        return response
+
+    # -- Experiment directory --
+
+    def _resolve_experiment_dir(self) -> Path:
+        if self.exp_logger and self.exp_logger.log_path:
+            p = self.exp_logger.log_path.parent
+        else:
+            from datetime import datetime
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            p = Path("experiment_logs") / f"search_agent1_{ts}"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    # -- Dict extraction --
+
+    @staticmethod
+    def _extract_python_dict(response: str, require_key: str | None = None) -> dict | None:
+        """Extract a Python dict from an LLM response.
+
+        Tries ```python blocks first (via ast.literal_eval), then falls back to
+        finding bare dict literals. Optionally requires a specific key.
+        """
+        # Strategy 1: code blocks
+        pattern = r"```(?:python|py)?\s*\n(.*?)```"
+        matches = re.findall(pattern, response, re.DOTALL)
+
+        for block in reversed(matches):
+            block = block.strip()
+            try:
+                result = ast.literal_eval(block)
+                if isinstance(result, dict):
+                    if require_key is None or require_key in result:
+                        return result
+            except (ValueError, SyntaxError):
+                pass
+
+        # Strategy 2: find dict literal with brace matching
+        brace_depth = 0
+        start_idx = None
+        for i, ch in enumerate(response):
+            if ch == '{':
+                if brace_depth == 0:
+                    start_idx = i
+                brace_depth += 1
+            elif ch == '}':
+                brace_depth -= 1
+                if brace_depth == 0 and start_idx is not None:
+                    candidate = response[start_idx:i + 1]
+                    try:
+                        result = ast.literal_eval(candidate)
+                        if isinstance(result, dict):
+                            if require_key is None or require_key in result:
+                                return result
+                    except (ValueError, SyntaxError):
+                        start_idx = None
+                        continue
+
+        # Strategy 3: eval with restricted builtins for Python-isms
+        for block in reversed(matches):
+            block = block.strip()
+            try:
+                result = eval(block, {"__builtins__": {}}, {
+                    "None": None, "True": True, "False": False,
+                    "true": True, "false": False, "null": None,
+                })
+                if isinstance(result, dict):
+                    if require_key is None or require_key in result:
+                        return result
+            except Exception:
+                pass
+
+        return None
+
+    @staticmethod
+    def _extract_variables_dict(response: str) -> dict | None:
+        """Extract a variables dict {var_name: [values...]} from an LLM response.
+
+        The variables dict maps variable names (strings) to lists of possible
+        values. Validates that all values are lists.
+        """
+        d = CartesianProductAgent._extract_python_dict(response)
+        if d is None:
+            return None
+        # Validate: all values should be lists
+        if not all(isinstance(v, list) for v in d.values()):
+            logger.warning(f"Variables dict has non-list values, coercing: {d}")
+            d = {k: (v if isinstance(v, list) else [v]) for k, v in d.items()}
+        if not d:
+            return None
+        return d
+
+    # -- Generator via itertools.product --
+
+    def _run_generator(self, count: int) -> list[dict]:
+        """Generate up to `count` hypotheses from the variables dict via
+        itertools.product, skipping already-tested hypotheses.
+
+        Runs in a subprocess for safety (the variable values are LLM-generated).
+        Returns a list of hypothesis dicts.
+        """
+        import itertools as _itertools
+
+        skip = self._hypotheses_tested
+        variables_json = json.dumps(self._variables_dict, default=str)
+
+        harness = (
+            "import json\n"
+            "import itertools\n\n"
+            f"variables = json.loads({json.dumps(variables_json)})\n"
+            f"keys = list(variables.keys())\n"
+            f"value_lists = [variables[k] for k in keys]\n"
+            f"gen = (dict(zip(keys, combo)) for combo in itertools.product(*value_lists))\n"
+            f"# Skip {skip} already-yielded hypotheses\n"
+            f"for _ in range({skip}):\n"
+            f"    try:\n"
+            f"        next(gen)\n"
+            f"    except StopIteration:\n"
+            f"        break\n"
+            f"results = []\n"
+            f"for i, h in enumerate(gen):\n"
+            f"    if i >= {count}:\n"
+            f"        break\n"
+            f"    results.append(h)\n"
+            f"print(json.dumps(results))\n"
+        )
+
+        from code_executor import execute_python
+        result = execute_python(harness, timeout=30)
+
+        if result.return_code != 0 or result.timed_out:
+            logger.error(
+                f"Generator execution failed: rc={result.return_code}, "
+                f"timed_out={result.timed_out}, stderr={result.stderr[:500]}"
+            )
+            self._log_call(
+                "generator_exec", "generator_execution",
+                f"[Variables dict]\n{self._variables_dict}",
+                f"FAILED: {result.stderr[:500]}",
+            )
+            return []
+
+        try:
+            hypotheses = json.loads(result.stdout.strip())
+            if not isinstance(hypotheses, list):
+                logger.error(f"Generator output is not a list: {type(hypotheses)}")
+                return []
+            return hypotheses
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse generator output: {e}")
+            return []
+
+    # -- Variables dict file I/O --
+
+    def _save_variables(self, exp_dir: Path) -> None:
+        """Save the current variables dict to current_variables.json."""
+        path = exp_dir / "current_variables.json"
+        with open(path, "w") as f:
+            json.dump(self._variables_dict, f, indent=2, default=str)
+
+    def _save_variables_history(self, exp_dir: Path) -> None:
+        """Save all variables dict versions to variables_history.json."""
+        path = exp_dir / "variables_history.json"
+        with open(path, "w") as f:
+            json.dump(self._variables_versions, f, indent=2, default=str)
+
+    # -- Hypothesis database --
+
+    def _init_hypothesis_db(self, db_path: Path) -> None:
+        if db_path.exists():
+            with open(db_path) as f:
+                self._hypothesis_db = json.load(f)
+            logger.info(f"Loaded existing hypothesis DB with {len(self._hypothesis_db)} entries")
+        else:
+            self._hypothesis_db = []
+            with open(db_path, "w") as f:
+                json.dump([], f)
+            logger.info(f"Initialized empty hypothesis DB at {db_path}")
+
+    def _save_hypothesis_db(self, db_path: Path) -> None:
+        with open(db_path, "w") as f:
+            json.dump(self._hypothesis_db, f, indent=2, default=str)
+
+    # -- Hypothesis testing --
+
+    def _test_hypothesis(self, hypothesis: dict) -> dict:
+        """Call LLM with test_hypothesis_prompt. Injects 'hypothesis' key into
+        the extracted result dict so it's always present regardless of LLM output."""
+        hypothesis_str = str(hypothesis)
+        variables_str = json.dumps(self._variables_dict, indent=2, default=str)
+        instruction = self.config.test_hypothesis_prompt.format(
+            hypothesis=hypothesis_str,
+            variables=variables_str,
+        )
+
+        context = self._build_context_string()
+        full_prompt = context + "\n\n" + instruction
+
+        response = self.llm(full_prompt)
+        self._log_call(
+            f"test_h{self._hypotheses_tested + 1}",
+            "test_hypothesis",
+            full_prompt,
+            response,
+        )
+
+        result = self._extract_python_dict(response)
+        if result is None:
+            logger.warning(f"Failed to extract dict from test response for: {hypothesis}")
+            result = {
+                "prediction": None,
+                "evidence_for": "",
+                "evidence_against": "",
+                "trace": "EXTRACTION_FAILED",
+                "recommendations": "",
+                "observations": "",
+                "_raw_response": response[:2000],
+            }
+
+        # Always inject the hypothesis we fed in — authoritative source
+        result["hypothesis"] = hypothesis
+        return result
+
+    def _extract_solution_from_test(self, test_result: dict) -> str | None:
+        prediction = test_result.get("prediction")
+        if prediction is None:
+            return None
+        candidate = str(prediction).strip()
+        if not candidate or candidate.lower() == "none":
+            return None
+        return candidate
+
+    # -- Variables revision --
+
+    def _revise_variables(self) -> dict | None:
+        """Call LLM with revise_generator_prompt, providing the current variables
+        dict and ALL tested hypotheses.
+
+        Returns the new variables dict if the LLM proposes an update, or None.
+        """
+        variables_str = json.dumps(self._variables_dict, indent=2, default=str)
+        tested_str = json.dumps(self._hypothesis_db, indent=2, default=str)
+        instruction = self.config.revise_generator_prompt.format(
+            variables=variables_str,
+            tested_hypotheses=tested_str,
+        )
+
+        context = self._build_context_string()
+        full_prompt = context + "\n\n" + instruction
+
+        response = self.llm(full_prompt)
+        self._log_call("revise_variables", "revise_variables", full_prompt, response)
+
+        if "no update" in response.lower():
+            return None
+
+        new_vars = self._extract_variables_dict(response)
+        if new_vars is None:
+            logger.warning("Revise response mentioned an update but no valid variables dict extracted")
+            return None
+
+        return new_vars
+
+    # -- Fallback solution extraction --
+
+    def _extract_best_solution(self) -> str | None:
+        if not self._hypothesis_db:
+            return None
+
+        # Prefer hypotheses with positive evidence and no negative evidence
+        strong = [
+            e for e in self._hypothesis_db
+            if e.get("prediction") is not None
+            and e.get("evidence_for")
+            and not e.get("evidence_against")
+        ]
+        if not strong:
+            strong = [e for e in self._hypothesis_db if e.get("prediction") is not None]
+        if not strong:
+            return None
+
+        candidates_str = json.dumps(strong[-5:], indent=2, default=str)
+        context = self._build_context_string()
+        extract_prompt = (
+            context + "\n\n"
+            f"Hypothesis test results:\n{candidates_str}\n\n"
+            + self.config.solution_extract_prompt
+        )
+
+        result = self.llm(extract_prompt)
+        self._log_call("extract_solution", "extract_solution", extract_prompt, result)
+        return result.strip() if result.strip() else None
+
+    # -- Main entry point --
+
+    def solve(self, problem: str) -> str | None:
+        self.problem = problem
+        self.solution = None
+        exp_dir = self._resolve_experiment_dir()
+
+        # Initialize hypothesis database
+        db_path = exp_dir / "hypothesis_db.json"
+        self._init_hypothesis_db(db_path)
+
+        # Phase 1: classify the problem
+        # Run without refinement first; refinement is handled manually below
+        # to support k iterations and "COPY FROM HERE:" marker extraction.
+        parent_class_response = self._run_phase(
+            phase_name="parent_class",
+            prompt_template=self.config.parent_class_prompt,
+            format_kwargs={"problem": self.problem},
+            refine_prompt_text="",  # refinement handled below
+        )
+
+        # Optionally refine parent_class for k iterations.
+        # The refinement prompt instructs the LLM to write "COPY FROM HERE:"
+        # followed by the replacement text. We extract only the text after
+        # that marker for the drop-in replacement.
+        if self.config.enable_refine_parent_class and self.config.refine_parent_class_prompt:
+            current_response = parent_class_response
+            for refine_iter in range(self.config.refine_parent_class_iterations):
+                refine_prompt_text = self.config.refine_parent_class_prompt
+                # Pop the response entry so it isn't duplicated — it appears
+                # below under the EDIT FROM HERE marker instead.
+                last_entry = self._context_parts.pop()
+                refine_context = self._build_context_string()
+                self._context_parts.append(last_entry)
+                refine_full = (
+                    (refine_context + "\n\n" if refine_context else "")
+                    + f"[parent_class] EDIT FROM HERE -->\n{current_response}"
+                    + "\n\n" + refine_prompt_text
+                )
+                refined_response = self.llm(refine_full)
+                iter_label = f"refine(parent_class, iter={refine_iter + 1})"
+                self._log_call(iter_label, "refine", refine_full, refined_response)
+
+                # Extract text after "COPY FROM HERE:" marker if present
+                marker = "COPY FROM HERE:"
+                marker_idx = refined_response.find(marker)
+                if marker_idx != -1:
+                    extracted = refined_response[marker_idx + len(marker):].strip()
+                    logger.info(f"parent_class refinement {refine_iter + 1}: "
+                                f"extracted {len(extracted)} chars after '{marker}'")
+                    current_response = extracted
+                else:
+                    logger.warning(f"parent_class refinement {refine_iter + 1}: "
+                                   f"'{marker}' not found, using full response as fallback")
+                    current_response = refined_response
+
+                # Update the context to use the latest refined response
+                self._context_parts[-1] = ("[parent_class]", current_response)
+                logger.info(f"parent_class refinement {refine_iter + 1}/"
+                            f"{self.config.refine_parent_class_iterations} complete")
+
+        logger.info("Phase 1 (parent_class) complete")
+
+        # Phase 2: enumerate search strategies (skipped if prompt is empty)
+        if self.config.search_strategy_prompt:
+            refine_ss = (
+                self.config.refine_search_strategy_prompt
+                if self.config.enable_refine_search_strategy
+                else ""
+            )
+            self._run_phase(
+                phase_name="search_strategy",
+                prompt_template=self.config.search_strategy_prompt,
+                format_kwargs={},
+                refine_prompt_text=refine_ss,
+            )
+            logger.info("Phase 2 (search_strategy) complete")
+        else:
+            logger.info("Phase 2 (search_strategy) skipped — no prompt configured")
+
+        # Phase 3: begin_solve — produces initial variables dict
+        # Run without refinement first so we can extract variables, generate
+        # example hypotheses, and feed them into the refinement prompt.
+        begin_solve_response = self._run_phase(
+            phase_name="begin_solve",
+            prompt_template=self.config.begin_solve_prompt,
+            format_kwargs={
+                "option_index": "1",
+                "domain_hints": self.config.domain_hints,
+            },
+            refine_prompt_text="",  # refinement handled below
+        )
+        logger.info("Phase 3 (begin_solve) complete")
+
+        # Extract variables dict from the raw begin_solve response
+        variables = self._extract_variables_dict(begin_solve_response)
+        if variables is None:
+            logger.error("Failed to extract variables dict from begin_solve response")
+            return None
+
+        # Optionally refine: generate example hypotheses first so the
+        # refinement agent can see what the generator actually produces.
+        # Runs for refine_begin_solve_iterations passes (each sees fresh examples).
+        if self.config.enable_refine_begin_solve and self.config.refine_begin_solve_prompt:
+            current_response = begin_solve_response
+            for refine_iter in range(self.config.refine_begin_solve_iterations):
+                self._variables_dict = variables
+                examples = self._run_generator(3)
+                examples_str = json.dumps(examples, indent=2, default=str) if examples else "[]"
+                # _hypotheses_tested is NOT incremented — these are just preview samples
+
+                refine_prompt_text = self.config.refine_begin_solve_prompt.format(
+                    example_hypotheses=examples_str,
+                )
+                # Pop the response entry so it isn't duplicated — it appears
+                # below under the EDIT FROM HERE marker instead.
+                last_entry = self._context_parts.pop()
+                refine_context = self._build_context_string()
+                self._context_parts.append(last_entry)
+                refine_full = (
+                    (refine_context + "\n\n" if refine_context else "")
+                    + f"[begin_solve] EDIT FROM HERE -->\n{current_response}"
+                    + "\n\n" + refine_prompt_text
+                )
+                refined_response = self.llm(refine_full)
+                iter_label = f"refine(begin_solve, iter={refine_iter + 1})"
+                self._log_call(iter_label, "refine", refine_full, refined_response)
+
+                # Re-extract variables from the refined response
+                refined_variables = self._extract_variables_dict(refined_response)
+                if refined_variables is not None:
+                    variables = refined_variables
+                    current_response = refined_response
+                    # Update the context to use the latest refined response
+                    self._context_parts[-1] = ("[begin_solve]", current_response)
+                    logger.info(f"begin_solve refinement {refine_iter + 1}/{self.config.refine_begin_solve_iterations} "
+                                f"succeeded: {list(variables.keys())}")
+                else:
+                    logger.warning(f"begin_solve refinement {refine_iter + 1} failed to extract variables; stopping refinement")
+                    break
+
+        self._variables_dict = variables
+        self._variables_versions.append(variables)
+        self._save_variables(exp_dir)
+        self._save_variables_history(exp_dir)
+        logger.info(f"Initial variables dict: {list(variables.keys())} "
+                     f"({sum(len(v) for v in variables.values())} total values)")
+
+        # Main generate-test-revise loop
+        for iteration in range(self.config.max_iterations):
+            logger.info(f"=== Iteration {iteration + 1}/{self.config.max_iterations} ===")
+
+            # (a) Sample hypotheses from product of variable lists
+            hypotheses = self._run_generator(self.config.hypotheses_per_batch)
+
+            if not hypotheses:
+                logger.warning(f"Generator produced 0 hypotheses at iteration {iteration + 1}")
+            else:
+                # (b) Test each hypothesis
+                for h_idx, hypothesis in enumerate(hypotheses):
+                    logger.info(f"  Testing hypothesis {h_idx + 1}/{len(hypotheses)}")
+
+                    test_result = self._test_hypothesis(hypothesis)
+                    self._hypothesis_db.append(test_result)
+                    self._save_hypothesis_db(db_path)
+                    self._hypotheses_tested += 1
+
+                    # Check ground truth
+                    solution_candidate = self._extract_solution_from_test(test_result)
+                    if solution_candidate:
+                        correct, reason = self.ground_truth(self.problem, solution_candidate)
+                        if correct:
+                            self.solution = solution_candidate
+                            logger.info(f"SOLVED at iteration {iteration + 1}, hypothesis {h_idx + 1}")
+                            return self.solution
+
+            # (c) Revise variables (using ALL accumulated results)
+            revised_vars = self._revise_variables()
+            if revised_vars is not None:
+                self._variables_dict = revised_vars
+                self._variables_versions.append(revised_vars)
+                # Reset skip counter — new variable space produces different sequence
+                self._hypotheses_tested = 0
+                self._save_variables(exp_dir)
+                self._save_variables_history(exp_dir)
+                logger.info(f"Variables updated (version {len(self._variables_versions)}): "
+                            f"{list(revised_vars.keys())}")
+            else:
+                logger.info("No variables update this iteration")
+
+        # Exhausted iterations
+        logger.info("Max iterations reached without ground truth match")
+        return self._extract_best_solution()

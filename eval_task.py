@@ -1,7 +1,7 @@
 """
 Inspect AI evaluation task for problem solving.
 
-Defines the dataset loader, solver (wrapping SearchAgent), and scorer
+Defines the dataset loader, solver (wrapping agents), and scorer
 with flexible per-row checker dispatch.
 
 Usage via CLI:
@@ -34,7 +34,7 @@ from inspect_ai.scorer import (
 )
 from inspect_ai.solver import Generate, TaskState, solver
 
-from tree_agent import AgentConfig, SearchAgent
+from agents import AgentConfig
 from baseline_agents import create_agent
 from run_experiment import create_client_from_config
 
@@ -71,7 +71,7 @@ def record_to_sample(record: dict[str, Any]) -> Sample:
 
 
 # ---------------------------------------------------------------------------
-# Solver — wraps SearchAgent
+# Solver — wraps agents
 # ---------------------------------------------------------------------------
 
 def _passthrough_ground_truth(problem: str, solution: str) -> tuple[bool, str]:
@@ -85,8 +85,8 @@ def _passthrough_ground_truth(problem: str, solution: str) -> tuple[bool, str]:
 
 
 @solver
-def tree_search_solver(config_path: str = "configs/config.yaml"):
-    """Inspect solver that runs our tree search agent on each problem."""
+def tree_search_solver(config_path: str = "configs/config.yaml", model_override: str = "", thinking: bool = False):
+    """Inspect solver that runs our agent on each problem."""
 
     # Load config eagerly (lightweight), defer LLM client creation to first use
     config = AgentConfig.from_yaml(config_path)
@@ -94,7 +94,7 @@ def tree_search_solver(config_path: str = "configs/config.yaml"):
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         if not llm_holder:
-            llm_holder.append(create_client_from_config(config))
+            llm_holder.append(create_client_from_config(config, model_override=model_override or None, thinking=thinking))
         llm = llm_holder[0]
 
         problem = state.input_text
@@ -170,10 +170,12 @@ def problem_scorer():
 def problem_eval(
     dataset_path: str = "datasets/test_puzzles.csv",
     config_path: str = "configs/config.yaml",
+    model_override: str = "",
+    thinking: bool = False,
 ) -> Task:
     """Evaluate the tree search agent on a problem dataset."""
     return Task(
         dataset=csv_dataset(dataset_path, record_to_sample, auto_id=True),
-        solver=tree_search_solver(config_path=config_path),
+        solver=tree_search_solver(config_path=config_path, model_override=model_override, thinking=thinking),
         scorer=problem_scorer(),
     )

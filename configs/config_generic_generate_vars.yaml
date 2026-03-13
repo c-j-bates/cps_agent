@@ -1,0 +1,24 @@
+agent_class: multi_turn
+loop_start: 3
+max_repeats: 4
+
+# LLM provider config. Used by example.py / create_client_from_config().
+llm:
+  provider: claude              # "claude" or "openai"
+  # model: claude-sonnet-4-20250514  # or "gpt-4o", "claude-opus-4-20250514", etc.
+  model: claude-opus-4-6
+  temperature: 0.7
+  max_tokens: 6000
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker."
+
+prompt0: |
+  {problem}
+  Do not solve this problem yet! Instead, first, exhaustively generate the set of variables that define this class of problem. These should be independent of this particular problem instance. DO NOT start pursuing an answer yet.
+prompt1: |
+  For each variable, exhaustively generate the possible values they could take on. Then stop.
+prompt2: |
+  Exhaustively generate reasonable combinations of values, working through each combination. Do not select an answer yet.
+prompt3: |  # Repeat until solution emerges
+  Keep generating.
+prompt4: |  # Call this each time prompt3 is repeated (but don't include in conversation context for LLM)
+  Give your full solution.

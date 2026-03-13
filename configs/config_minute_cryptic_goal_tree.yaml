@@ -1,0 +1,243 @@
+agent_class: goal_tree
+max_revisions: 1
+max_depth: 10
+
+# LLM provider config. Used by example.py / create_client_from_config().
+llm:
+  provider: claude              # "claude" or "openai"
+  # model: claude-sonnet-4-20250514  # or "gpt-4o", "claude-opus-4-20250514", etc.
+  model: claude-sonnet-4-5-20250929
+  temperature: 0.7
+  max_tokens: 6000
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker. You never say things not supported by evidence. You are cold and calculating and never make qualitative statements like \"Seems promising!\". You always enumerate all logical possibilities, never just a set of examples. You only generate one \"thought\" per turn and carefully follow instructions regarding when to stop."
+
+# Prompt templates by phase.
+# These contain ONLY the new instruction for each step.
+# Context (interleaved prompts + responses) is prepended by the code at call time.
+parent_class_prompt: |
+  Problem: {problem}
+
+  Don't yet solve the problem above! Take these steps in sequence:
+  1. Identify the class of problem this belongs to. Choose a class that is as specific as you can get.
+  2. Given your choice, list out the key problem dimensions, in the abstract (i.e. don't mention any specifics from the current problem yet).
+  3a. Convert those dimensions into a comprehensive set of functions/mappings and variables that need to be determined in order to generate a solution. DO NOT fill in any guesses yet.
+  3b. Formally state the domain of each function and variable, e.g. x \in {{x1, x2, ...}}. DO NOT filter out any possibilities yet. Keep it comprehensive.
+  4. For each one, state how you would generate the full, exhaustive set of possibilities. When possible, represent this formally, using code/pseudo-code/math notation. Do not yet generate these possibilities.
+  Simply state how you would do it.
+
+  In all steps:
+  -- Be as terse as possible in your response
+  -- Be exhaustive and thorough when listing possibilities. Never use "etc." or be incomplete. You are solving a problem by yourself, *not* simply spurring thoughts for the user.
+search_strategy_prompt: |
+  Based on the above, generate a set of possible search procedures. Your output should be a numbered list. Guidelines:
+  -- Strategies should be specific to the class this problem belongs to, but NOT specific to this problem instance. Thus, they should not reference any specifics of the problem above.
+  -- Each strategy should be general and comprehensive. You should be able to follow all the way to the solution without switching strategies.
+  -- You will pursue each independently, so make sure any hybrid approaches are included in the list.
+begin_solve_prompt: |
+  Begin attempting a solution, proceeding with search strategy: {option_index}.
+  On each turn from this point forward, follow the algorithm below.
+  GUIDELINES:
+  -- Always list out an exhaustive set of alternative possibilities at each choice point.
+  -- All subgoals must be concrete and actionable such that you know when they are done (e.g. "Analyze X" is bad because you don't know when you've finished)
+  -- Progress is paramount! You should be able to justify why a goal will be accomplished once all its children are completed
+  -- Hypotheses must explicitly track all the decisions you listed out. That is, copy your numbered decisions list from above (paraphrasing okay; sub-hypotheses okay).
+  -- Because hypotheses track decisions, they should appear in subgoals (e.g. "SUBGOAL: Prove/disprove hypothesis H" or "SUBGOAL: Determine which is correct in [H1, H2, ...]")
+  -- When restructuring hypotheses, make sure you always cover the full space of valid possibilities. Be extremely thorough! When possible, find ways to condense the list, e.g. by using variables. E.g., "Hypothesis: x or y, where x \in X, y \in Y" preferred over "Hypothesis: x == x1".
+  -- When updating/restructuring hypotheses, always seek to be more general and comprehensive.
+
+  HINTS: {domain_hints}
+
+  GOAL TREE FORMAT:
+  GOAL: [Overall goal description]
+  │
+  ├── [✓] SUBGOAL 1: [description]
+  │   ├── [✓] SUBSUBGOAL 1: [description]
+  │   ├── [✓] SUBSUBGOAL 2: [description]
+  │   ├── ...
+  │   └── [✓] SUBSUBGOAL M: [description]
+  │
+  ├── ...
+  │
+  ├── [~] SUBGOAL N: [description]
+  │   ├── [✓] SUBSUBGOAL 1: [description]
+  │   ├── [~] SUBSUBGOAL 2: [description]
+  │   ├── ...
+  │   └── [ ] SUBSUBGOAL M: [description]
+  ─────────────────────────────────────────
+  [✓] complete   [~] in progress   [ ] not started
+  
+  THOUGHTS FORMAT:
+  Thought: <hypothesis-testing-thought | restructuring-thought>
+  hypothesis-testing-thought:
+    Target: [variable of function/mapping this addresses]
+    Subgoal: [which subgoal is being pursued]
+    Data: [inputs/givens/evidence]
+    Knowns: [What we already know for sure]
+    Unknowns: [Any auxiliary variables for Variable to be determined before achieving Subgoal]
+    Assumptions: [Key underlying assumptions/premises. Listing helps identify incorrect, implicit ones.]
+    Test: [Formal, logical test that defines if subgoal is met. If you can't make one, consider changing subgoal to be more concrete/actionable]
+    Procedure: [Formal approach to achieving goal]
+    Justification: [Very concretely and scientifically:
+      -- Why is proposed test correct choice? 
+      -- Why is Procedure predicted to work?
+      -- Why are Unknowns essential to completing Subgoal?]
+    Critique: [
+      -- Did the preceding fields contain the information they were supposed to? Are all claims and assumptions accurate?
+      -- Is proposed test informative and valid?
+      -- Does hypothesis space tell you all valid values Variable could take on?
+      -- Is subgoal useful toward larger goal in the first place?
+      ]
+    Verdict: PROCEED | ABORT | MODIFY
+    {{If verdict=PROCEED
+    Implementation: [Run the test. Stay on task---don't start tackling a new subgoal here. If it's not working, stop.]
+    Result: [Summarize what was learned]
+    Analysis: [
+      -- No more than 1-2 sentences
+      -- Don't jump ahead! Thoughts should only pertain directly to the chosen subgoal
+      -- Did you actually learn what you thought you would? Why or why not?
+      ]
+    Critique: [
+      -- Are the conclusions adequately supported by the evidence?
+      -- Are there any implicit assumptions not identified that invalidate the conclusion?
+      ]
+    Hypotheses update: [
+      -- Remove fully disproven ones, but still keep uncertain ones
+      -- Add new ones that occurred while implementing
+      -- Sort lists by current strength of evidence
+      ]
+    Goals update: [Update tree, marking subgoal complete or in progress, depending on outcome]
+    }}
+    Recommendations: [What should you do next to keep making progress toward the larger goal? Follow RECOMMENDATIONS FORMAT.]
+
+  restructuring-thought:
+    Type: MODIFY_VARIABLES | MODIFY_GOAL_TREE | MODIFY_HYPOTHESES
+    Proposal: [Options:
+      i) Rewrite to ensure all hypotheses/variables/subgoals are mutually exclusive
+      ii) Make collection of hypotheses/variables/subgoals more complete by adding missing ones
+      iii) Delete hypotheses/variables/subgoals deemed invalid
+      iv) Edit hypotheses/variables/subgoals to be more useful/correct/precise
+      ]
+    Justification: [Very concretely and scientifically, why will this help?]
+    Critique: [Think carefully and skeptically about the proposal]
+    Verdict: PROCEED | ABORT | MODIFY
+    {{If verdict=PROCEED
+    Implementation: [Update hypotheses/variables/subgoals]
+    }}
+    Recommendations: [You **MUST** follow RECOMMENDATIONS FORMAT.]
+
+  HYPOTHESIS FORMAT:
+  HYPOTHESES
+  Single-variable hypotheses:
+  1. <Variable 1>: x1 == w | x1 == v
+  2. <Variable 2>: x2 == u | x2 == t
+  3. ...
+  N. <Variable N>: ...
+  Multi-variable hypotheses:
+  1. <Variable set 1>: (x1 == w & x2 == u) | (x1 == v & x2 == t)
+
+  RECOMMENDATIONS FORMAT:
+  Generate a numbered list of options to consider, where each option matches one of the following possibilities:
+  ##. RESTRUCTURE_GOAL_TREE: spawn: <path.to.parent>: <new subgoal description>
+  ##. RESTRUCTURE_GOAL_TREE: modify: <path.to.subgoal>: <new subgoal description>
+  ##. RESTRUCTURE_GOAL_TREE: delete: <path.to.subgoal>
+  ##. RESTRUCTURE_VARIABLES: spawn: <variable id>: <new variable description>
+  ##. RESTRUCTURE_VARIABLES: modify: <variable id>: <new variable description>
+  ##. RESTRUCTURE_VARIABLES: delete: <variable id>
+  ##. RESTRUCTURE_HYPOTHESES: spawn: <hypothesis id>: <new hypothesis space>
+  ##. RESTRUCTURE_HYPOTHESES: modify: <hypothesis id>: <new hypothesis space>
+  ##. RESTRUCTURE_HYPOTHESES: delete: <hypothesis id>
+  ##. DO_HYPOTHESIS_TEST: <subgoal id>
+  ##. SET: [
+    {{list of above actions to do simultaneously}}
+    ]
+
+  ALGORITHM:
+  Inputs: 
+    decision variables,
+    search_strategy,
+    goal_tree=None,
+    hypotheses=None,
+    next_action=None
+  If not goal_tree: init empty goal tree
+  If not hypotheses: init empty hypotheses  # Numbered list of empty entries corresponding to decision variables
+  If next_action:
+    thought = do_action(next_action)
+    return thought.recommendations  # STOP HERE! Another agent will choose from your list.
+  else:
+    thought = sample_thought()
+    return thought.recommendations  # STOP HERE! Another agent will choose from your list.
+  # Note: the inputs will be provided from the prior conversation context, and `return val` means to generate `val` and then stop generating
+  # Remember: You **MUST** follow above formats exactly. No free-form responses!
+continuation_prompt: |
+  Proceed with option {option_index}.
+sort_options_prompt: |
+  Sort the options listed above by how promising they seem. Simply output a list, like:
+  [3, 1, 4, 2]
+  where here, 3 is considered the best option and 2 is the worst.
+leaf_check_prompt: |
+  Your job right now is to check in on the above progress by another worker. Have they proposed an answer yet to the original problem above?
+  Respond with exactly "YES" or "NO".
+refine_parent_class_prompt: |
+  Another agent generated the above text. Your job is to do cleanup and refinement to improve the output quality. Your response will be used as a drop-in replacement, so do not output any extraneous text. Guidelines:
+  -- Only refine the last section of text, as indicated by the "EDIT FROM HERE -->"  tag
+  -- Carefully examine the instructions contained in the preceding context. Then,
+  -- Correct any incorrect formatting
+  -- Remove any text that is off-topic, meandering, or not crucial to remember
+  -- Try to find the most concise way to express the ideas without losing any information
+  -- Whenever possibilities are being listed, fill in any missing items you can think of to make sure they are thorough
+  -- Fix any logical errors or inconsistencies
+  -- Find ways to consolidate related ideas whenever possible
+  -- In all cases, be thorough yet terse
+refine_search_strategy_prompt: |
+  Another agent generated the above text. Your job is to do cleanup and refinement to improve the output quality. Your response will be used as a drop-in replacement, so do not output any extraneous text. Guidelines:
+  -- Only refine the last section of text, as indicated by the "EDIT FROM HERE -->"  tag
+  -- Carefully examine the instructions contained in the preceding context. Then,
+  -- Correct any incorrect formatting
+  -- Remove any text that is off-topic, meandering, or not crucial to remember
+  -- Try to find the most concise way to express the ideas without losing any information
+  -- Whenever possibilities are being listed, fill in any missing items you can think of to make sure they are thorough
+  -- Fix any logical errors or inconsistencies
+  -- Find ways to consolidate related ideas whenever possible
+  -- In all cases, be thorough yet terse
+refine_solve_step_prompt: |
+  Another agent generated the above text. Your job is to do cleanup and refinement to improve the output quality. Your response will be used as a drop-in replacement, so do not output any extraneous text. Guidelines:
+  -- Only refine the last section of text, as indicated by the "EDIT FROM HERE -->"  tag
+  -- Don't delete any information in the goal tree, e.g., replacing subgoals with ellipses. The agent must be able to see the full tree.
+  -- Don't delete any information about which recommendation to proceed with. The agent needs this info.
+  -- Carefully examine the instructions contained in the preceding context. Then,
+  -- Correct any incorrect formatting
+  -- Fix any logical errors or inconsistencies
+  -- Remove any text that is off-topic, meandering, or not crucial to remember
+  -- If the agent says something has been ruled out, be highly skeptical and think hard about missed possibilities.
+  -- Be a counterweight to the other agent's tendency to narrow in on one possibility too early. Be strict and don't allow this. Stick to the plan.
+  -- The agent is suppose to stop every time it propose a list of recommendations, but sometimes it keeps going. If this happens, roll back to the original one and omit any subsequent ones.
+  -- Make sure proposed "tests" are quantitative ways to measure whether a subgoal is completed
+  -- Re-express ideas concisely but without losing any information, consolidating when possible
+  -- Whenever possibilities are being listed, identify missing items to add
+  -- Pay special attention to the hypotheses: It is absolutely critical to track all hypotheses that have been thought of and include them in the list of hypotheses. Scour the text to make sure you catch everything and include it, as the other agent often misses them.
+  -- In all cases, be thorough yet terse
+revision_parent_prompt: |
+  None of those ended up working. Can you think of any possibilities you missed in your list(s) above? Always list things exhaustively (don't use "etc.").
+
+  Provide a revised output below, which I can swap out for the original, as is, with not modification. Don't include anything that would become a weird non sequitur.
+
+revision_strategy_prompt: |
+  None of those ended up working. Can you think of any possibilities you missed in your list(s) above? Always list things exhaustively (don't use "etc.").
+
+  Provide a revised output below, which I can swap out for the original, as is, with not modification. Don't include anything that would become a weird non sequitur.
+revision_solve_prompt: |
+  None of those ended up working. Can you think of any possibilities you missed in your list(s) above? Always list things exhaustively (don't use "etc.").
+  In your thinking, carefully consider your original enumeration strategies.
+
+  Provide a revised output below, which I can swap out for the original, as is, with not modification. Don't include anything that would become a weird non sequitur.
+solution_extract_prompt: |
+  Extract and state the final solution. No extra characters; just the solution.
+
+# domain_hints: |
+#   Whenever you are doing a string operation, run a python script to do it. Never do this in token space, as you are very error prone.
+
+# Tool use config. Specifies which tools the LLM can invoke during solving.
+# tools:
+#   code_execution:
+#     enabled: false
+#     timeout: 30

@@ -106,6 +106,12 @@ class AnthropicClient:
     When tools_config enables code_execution, the client will pass tool
     definitions to the API and handle the tool_use/tool_result loop
     internally, returning the final text response.
+
+    When thinking is set, extended thinking is enabled via adaptive mode
+    (for Opus 4.6+). Temperature cannot be set when thinking is enabled.
+
+    The thinking field accepts either a bool (True → adaptive with default
+    "high" effort) or an effort string ("low", "medium", "high", "max").
     """
 
     model: str = "claude-sonnet-4-20250514"
@@ -114,6 +120,7 @@ class AnthropicClient:
     system_prompt: str = ""
     api_key: str | None = None
     tools_config: dict = field(default_factory=dict)
+    thinking: bool | str = False  # False, True, or effort level
     _client: object = field(default=None, repr=False, init=False)
     _tools: list = field(default=None, repr=False, init=False)
 
@@ -142,17 +149,31 @@ class AnthropicClient:
         kwargs: dict = {
             "model": self.model,
             "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
             "messages": messages,
         }
+        if self.thinking:
+            kwargs["thinking"] = {"type": "adaptive"}
+            # temperature must not be set when thinking is enabled (defaults to 1)
+            effort = self.thinking if isinstance(self.thinking, str) else None
+            if effort:
+                kwargs["output_config"] = {"effort": effort}
+        else:
+            kwargs["temperature"] = self.temperature
         if self.system_prompt:
             kwargs["system"] = self.system_prompt
         if self._tools:
             kwargs["tools"] = self._tools
 
+        # Use streaming when thinking is enabled (avoids SDK 10-min timeout)
+        use_stream = bool(self.thinking)
+
         # Tool-use loop: call API, handle tool_use blocks, repeat
         for round_num in range(self.MAX_TOOL_ROUNDS):
-            response = self._client.messages.create(**kwargs)
+            if use_stream:
+                with self._client.messages.stream(**kwargs) as stream:
+                    response = stream.get_final_message()
+            else:
+                response = self._client.messages.create(**kwargs)
             total_input += response.usage.input_tokens
             total_output += response.usage.output_tokens
             rounds = round_num + 1
@@ -162,9 +183,16 @@ class AnthropicClient:
                 f"tokens: in={response.usage.input_tokens} out={response.usage.output_tokens}"
             )
 
+            # DEBUG ######
             print(prompt)
-            print(response.content[0].text)
-            breakpoint()
+            for block in response.content:
+                if block.type == "thinking":
+                    print(f"[thinking] {block.thinking}...")
+                elif block.type == "text":
+                    print("[text block]")
+                    print(block.text)
+            breakpoint()  # DON'T EVER DELETE ME!
+            ###############
 
             if response.stop_reason != "tool_use":
                 # Final response — extract text
@@ -280,6 +308,7 @@ _PROVIDERS = {
 def create_client(
     provider: str,
     model: str | None = None,
+    thinking: bool | str = False,
     **kwargs,
 ) -> AnthropicClient | OpenAIClient:
     """
@@ -288,6 +317,10 @@ def create_client(
     Args:
         provider: "claude"/"anthropic" or "openai"/"gpt"
         model: Override the default model name.
+        thinking: Enable extended thinking (Anthropic only).
+                  True → adaptive with default effort ("high").
+                  str  → adaptive with that effort level
+                         ("low", "medium", "high", "max").
         **kwargs: Passed to the client constructor (temperature, max_tokens,
                   system_prompt, api_key, tools_config).
     """
@@ -299,4 +332,6 @@ def create_client(
         )
     if model is not None:
         kwargs["model"] = model
+    if thinking and cls is AnthropicClient:
+        kwargs["thinking"] = thinking
     return cls(**kwargs)
