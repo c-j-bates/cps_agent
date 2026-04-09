@@ -1,0 +1,98 @@
+\begin{table}[ht]
+\centering
+\caption{Per-problem results (\cmark = correct, \xmark = incorrect).}
+\label{tab:per-problem}
+\begin{tabular}{lccccccccccccc}
+\toprule
+Problem & baseline claude-opus-4-6-instant & baseline claude-opus-4-6-instant & baseline claude-opus-4-6-thinking & baseline deepseek-chat & baseline deepseek-reasoner & keep\_thinking\_step\_by\_step claude-opus-4-6-instant & keep\_thinking\_step\_by\_step deepseek-chat & step\_back claude-opus-4-6-instant & step\_back deepseek-chat & self\_discover claude-opus-4-6-instant & self\_discover deepseek-chat & generate\_vars claude-opus-4-6-instant & generate\_vars deepseek-chat \\
+\midrule
+1 & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+2 & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+3 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+4 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark \\
+5 & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+6 & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+7 & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark \\
+8 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark \\
+9 & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark \\
+10 & \xmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \xmark \\
+11 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+12 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+13 & \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+14 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+15 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+16 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+17 & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+18 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+19 & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark \\
+20 & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+21 & \xmark & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark \\
+22 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+23 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+24 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \xmark \\
+25 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+26 & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark \\
+27 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+28 & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & \cmark & \cmark & \xmark \\
+29 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+30 & \xmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+31 & \cmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+32 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+33 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+34 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \xmark \\
+35 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+36 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+37 & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+38 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark \\
+39 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+40 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+41 & \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+42 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+43 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+44 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+45 & \cmark & \xmark & \cmark & \xmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark \\
+46 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+47 & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+48 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+49 & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+50 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+51 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark \\
+52 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+53 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+54 & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+55 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+56 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+57 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+58 & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+59 & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark \\
+60 & \cmark & \xmark & \cmark & \xmark & \xmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+61 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+62 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark \\
+63 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \cmark & \xmark \\
+64 & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+65 & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark \\
+66 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark \\
+67 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark \\
+68 & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+69 & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+70 & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+71 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+72 & \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \xmark \\
+73 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+74 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+75 & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+76 & \xmark & \cmark & -- & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+77 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+78 & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+79 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+80 & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+81 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & -- \\
+82 & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & -- \\
+83 & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & -- \\
+84 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark \\
+85 & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \cmark & -- \\
+\midrule
+\textbf{Total} & \textbf{50/85} & \textbf{48/85} & \textbf{82/84} & \textbf{77/255} & \textbf{97/192} & \textbf{69/85} & \textbf{102/255} & \textbf{78/85} & \textbf{43/117} & \textbf{74/85} & \textbf{82/171} & \textbf{83/85} & \textbf{43/81} \\
+\bottomrule
+\end{tabular}
+\end{table}

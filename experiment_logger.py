@@ -7,6 +7,7 @@ for crash resilience, then appends a tree structure and summary at the end.
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -35,6 +36,8 @@ class ExperimentLogger:
         provider: str,
         model: str,
         config_path: str = "",
+        dataset_path: str = "",
+        thinking: bool | str = False,
     ) -> Path:
         """Create the log directory and file, write the header.
 
@@ -57,11 +60,13 @@ class ExperimentLogger:
         self._write(f"- **Timestamp**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         self._write(f"- **Provider**: {provider}\n")
         self._write(f"- **Model**: {model}\n")
+        self._write(f"- **Thinking**: {thinking}\n")
         if config_path:
             self._write(f"- **Config**: {config_path}\n")
-        self._write(f"- **Agent class**: {config.agent_class or 'tree_search'}\n")
-        self._write(f"- **Max depth**: {config.max_depth}\n")
-        self._write(f"- **Max revisions**: {config.max_revisions}\n")
+        if dataset_path:
+            self._write(f"- **Dataset**: {dataset_path}\n")
+        agent_class = config.agent_class or "multi_turn"
+        self._write(f"- **Agent class**: {agent_class}\n")
         self._write("\n")
 
         # Problem statement
@@ -82,6 +87,7 @@ class ExperimentLogger:
         prompt: str,
         response: str,
         usage: "LLMCallRecord | None" = None,
+        reasoning: str = "",
     ) -> None:
         """Append a single LLM call entry. Written immediately for crash safety."""
         if self._file is None:
@@ -102,6 +108,9 @@ class ExperimentLogger:
 
         self._write("**Prompt**:\n\n")
         self._write(f"````\n{prompt}\n````\n\n")
+        if reasoning:
+            self._write("**Reasoning/Thinking**:\n\n")
+            self._write(f"````\n{reasoning}\n````\n\n")
         self._write("**Response**:\n\n")
         self._write(f"````\n{response}\n````\n\n")
         self._write("---\n\n")
@@ -169,6 +178,16 @@ class ExperimentLogger:
         self._write(f"| Wall clock time | {total_time:.1f}s |\n")
         self._write("\n")
         self._flush()
+
+    def log_json_tree(self, tree_data: dict) -> Path | None:
+        """Write a JSON tree file alongside the Markdown log."""
+        if self.log_path is None:
+            return None
+        json_path = self.log_path.with_suffix(".json")
+        with open(json_path, "w") as f:
+            json.dump(tree_data, f, indent=2, ensure_ascii=False)
+        logger.info(f"JSON tree log: {json_path}")
+        return json_path
 
     def finalize(self) -> None:
         """Flush and close the log file."""

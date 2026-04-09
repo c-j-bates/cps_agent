@@ -1,0 +1,45 @@
+agent_class: multi_turn
+
+llm:
+  provider: claude
+  model: claude-opus-4-6
+  temperature: 0.7
+  max_tokens: 65536
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker."
+
+graph:
+  entry: devise_plan
+
+  nodes:
+    devise_plan:
+      prompt: |
+        {problem}
+
+        Let's first understand the problem, extract relevant variables and their corresponding values, and make a complete plan. Do NOT start solving yet — just output the plan.
+    execute_plan:
+      prompt: |
+        Now let's carry out the plan, calculate intermediate results (pay attention to correct calculation and commonsense), solve the problem step by step, and show the answer.
+    keep_thinking:
+      prompt: |
+        You haven't found the answer yet. Keep generating new ideas.
+
+  edges:
+    - { from: devise_plan, to: execute_plan }
+    - { from: execute_plan, to: keep_thinking }
+    - { from: keep_thinking, to: keep_thinking, max_repeats: 5 }
+
+  side_channels:
+    - id: answer_check
+      run_after: [execute_plan, keep_thinking]
+      check_answer: true
+      graph:
+        entry: give_solution
+        nodes:
+          give_solution:
+            prompt: |
+              Give your full solution.
+          extract_answer:
+            prompt: |
+              Reply with ONLY the final answer. No labels, no markdown, no explanation, no punctuation — just the answer itself on a single line.
+        edges:
+          - { from: give_solution, to: extract_answer }

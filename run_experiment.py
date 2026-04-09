@@ -22,15 +22,12 @@ import argparse
 import csv
 import logging
 import re
-import yaml
 from datetime import datetime
 from pathlib import Path
 
-from agents import AgentConfig
-from baseline_agents import create_agent
+from agents import AgentConfig, create_agent, make_ground_truth
 from llm_clients import create_client, LLMCallRecord
 from experiment_logger import ExperimentLogger
-from problem_loader import load_problems, make_ground_truth
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -173,19 +170,41 @@ def create_client_from_config(
     provider_override: str | None = None,
     model_override: str | None = None,
     thinking: bool | str = False,
+    base_url: str | None = None,
+    timeout: float | None = None,
+    max_tokens_override: int | None = None,
 ):
     """Create an LLM client from an AgentConfig, passing through tools_config."""
     llm_cfg = config.llm_config
     provider = provider_override or llm_cfg.get("provider", "claude")
     model = model_override or llm_cfg.get("model")
+
+    kwargs = {
+        "temperature": llm_cfg.get("temperature", 0.7),
+        "max_tokens": max_tokens_override or llm_cfg.get("max_tokens", 4096),
+        "system_prompt": llm_cfg.get("system_prompt", ""),
+        "tools_config": config.tools_config,
+    }
+
+    # base_url: CLI flag > YAML config
+    effective_base_url = base_url or llm_cfg.get("base_url")
+    if effective_base_url:
+        kwargs["base_url"] = effective_base_url
+
+    # api_key_env from YAML config
+    if llm_cfg.get("api_key_env"):
+        kwargs["api_key_env"] = llm_cfg["api_key_env"]
+
+    # timeout: CLI flag > YAML config
+    effective_timeout = timeout or llm_cfg.get("timeout")
+    if effective_timeout is not None:
+        kwargs["timeout"] = float(effective_timeout)
+
     return create_client(
         provider=provider,
         model=model,
-        temperature=llm_cfg.get("temperature", 0.7),
-        max_tokens=llm_cfg.get("max_tokens", 4096),
-        system_prompt=llm_cfg.get("system_prompt", ""),
-        tools_config=config.tools_config,
         thinking=thinking,
+        **kwargs,
     )
 
 
@@ -194,19 +213,18 @@ def create_client_from_config(
 # ---------------------------------------------------------------------------
 
 def main():
-    default_problems = str(Path(__file__).parent / "problems.yaml")
-
     parser = argparse.ArgumentParser(description="Tree search agent (single problem)")
     parser.add_argument(
         "--provider",
-        choices=["claude", "openai", "mock"],
         default="mock",
+        help="LLM provider: claude, openai, deepseek, ollama, vllm, or mock "
+             "(default: mock). Any name works with --base-url for custom "
+             "OpenAI-compatible endpoints.",
     )
     parser.add_argument("--config", default="configs/config.yaml")
-    parser.add_argument("--problems", default=default_problems,
-                        help="Path to problems YAML dataset")
     parser.add_argument("--dataset",
-                        help="Path to a CSV dataset (overrides --problems). "
+                        default="datasets/minute_cryptic.csv",
+                        help="Path to a CSV dataset. "
                              "If the CSV has an 'id' column, --problem-id matches it; "
                              "otherwise --problem-id is a 1-indexed row number.")
     parser.add_argument("--problem-id",
@@ -215,19 +233,28 @@ def main():
                         help="List available problems and exit")
     parser.add_argument("--model",
                         help="Override the LLM model name from the config")
-    parser.add_argument("--thinking", nargs="?", const="high", default=False,
-                        metavar="EFFORT",
-                        help="Enable extended thinking (adaptive mode, Anthropic only). "
-                             "Optional effort: low, medium, high (default), max (Opus 4.6 only)")
+    parser.add_argument("--base-url",
+                        help="Base URL for OpenAI-compatible API endpoint "
+                             "(e.g. http://localhost:11434/v1 for Ollama)")
+    parser.add_argument(
+        "--thinking", nargs="?", const=True, default=False,
+        metavar="EFFORT",
+        help="Enable extended thinking / reasoning (off by default). "
+             "For Anthropic: adaptive mode with optional effort "
+             "(low, medium, high, max). "
+             "For Ollama: passes think=true to the API so models "
+             "like DeepSeek R1 and QwQ return reasoning chains.")
+    parser.add_argument("--timeout", type=float, default=None,
+                        help="Per-request timeout in seconds for LLM API calls "
+                             "(default: 600s). Increase for large local models.")
+    parser.add_argument("--max-tokens", type=int, default=None,
+                        help="Override max_tokens from config (useful for capping costs during piloting)")
     parser.add_argument("--log-dir", default="experiment_logs",
                         help="Directory for experiment log files (default: experiment_logs)")
     args = parser.parse_args()
 
     # Load the problem dataset
-    if args.dataset:
-        problems = load_problems_from_csv(args.dataset)
-    else:
-        problems = load_problems(args.problems)
+    problems = load_problems_from_csv(args.dataset)
 
     if args.list_problems:
         print("Available problems:")
@@ -253,7 +280,7 @@ def main():
     if args.provider == "mock":
         llm = MockLLM()
     else:
-        llm = create_client_from_config(config, provider_override=args.provider, model_override=args.model, thinking=args.thinking)
+        llm = create_client_from_config(config, provider_override=args.provider, model_override=args.model, thinking=args.thinking, base_url=args.base_url, timeout=args.timeout, max_tokens_override=args.max_tokens)
 
     # Set up experiment logger — each run gets its own subdirectory
     llm_cfg = config.llm_config
@@ -269,6 +296,8 @@ def main():
         provider=args.provider,
         model=model,
         config_path=args.config,
+        dataset_path=args.dataset,
+        thinking=args.thinking,
     )
 
     agent = create_agent(config, llm, ground_truth, exp_logger=exp_logger)
@@ -279,11 +308,37 @@ def main():
         exp_logger.log_tree(agent.root)
     usage_log = getattr(llm, "usage_log", [])
     exp_logger.log_summary(solution, usage_log)
+
+    # Write JSON execution tree (MultiTurnAgent graph-based runs)
+    if hasattr(agent, "execution_tree") and agent.execution_tree:
+        json_tree = {
+            "metadata": {
+                "problem_id": problem_id,
+                "problem": problem,
+                "config_path": args.config,
+                "provider": args.provider,
+                "model": model,
+                "thinking": args.thinking if args.thinking else False,
+                "timestamp": datetime.now().isoformat(),
+            },
+            "execution": agent.execution_tree,
+            "final_answer": solution,
+            "terminated_early": getattr(agent, "terminated_early", False),
+        }
+        json_path = exp_logger.log_json_tree(json_tree)
+        if json_path:
+            print(f"JSON tree log: {json_path}")
+
     exp_logger.finalize()
 
     print("\n" + "=" * 60)
     if solution:
+        correct, detail = ground_truth(problem, solution)
+        status = "CORRECT ✓" if correct else "INCORRECT ✗"
         print(f"SOLUTION FOUND: {solution}")
+        print(f"ANSWER CHECK:   {status}")
+        if not correct:
+            print(f"  Expected: {entry['solution']}")
     else:
         print("NO SOLUTION FOUND within limits.")
 

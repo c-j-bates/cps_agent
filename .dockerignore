@@ -1,0 +1,13 @@
+.venv/
+.git/
+.claude/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.DS_Store
+.env
+logs/
+experiment_logs/
+outputs/
+.idea/
+.vscode/

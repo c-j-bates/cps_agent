@@ -1,0 +1,29 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  cps_agent:
+    build: .
+    env_file: .env
+    volumes:
+      - ./experiment_logs:/app/experiment_logs
+      - ./outputs:/app/outputs
+      - ./logs:/app/logs
+      - ./eval_results:/app/eval_results
+    # Use host networking so localhost:<port> works without code changes.
+    network_mode: host
+
+volumes:
+  ollama_data:

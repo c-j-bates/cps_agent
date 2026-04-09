@@ -1,0 +1,45 @@
+agent_class: multi_turn
+
+llm:
+  provider: claude
+  model: claude-opus-4-6
+  temperature: 0.7
+  max_tokens: 65536
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker."
+
+graph:
+  entry: step_back
+
+  nodes:
+    step_back:
+      prompt: |
+        {problem}
+
+        This is a cryptic crossword clue. Do not solve it yet! Instead, step back and paraphrase this into a more generic, higher-level question that is easier to answer. What are the principles, concepts, or general knowledge needed to solve this kind of problem? Answer that step-back question first.
+    solve_with_principles:
+      prompt: |
+        Now, using the principles and concepts you described above, solve the original cryptic crossword clue. Ground your reasoning in those foundational ideas.
+    keep_thinking:
+      prompt: |
+        You haven't found the answer yet. Keep generating new ideas.
+
+  edges:
+    - { from: step_back, to: solve_with_principles }
+    - { from: solve_with_principles, to: keep_thinking }
+    - { from: keep_thinking, to: keep_thinking, max_repeats: 5 }
+
+  side_channels:
+    - id: answer_check
+      run_after: [solve_with_principles, keep_thinking]
+      check_answer: true
+      graph:
+        entry: give_solution
+        nodes:
+          give_solution:
+            prompt: |
+              Give your full solution.
+          extract_answer:
+            prompt: |
+              Reply with ONLY the final answer. No labels, no markdown, no explanation, no punctuation — just the answer itself on a single line.
+        edges:
+          - { from: give_solution, to: extract_answer }
