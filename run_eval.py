@@ -22,7 +22,7 @@ from pathlib import Path
 from inspect_ai import eval as inspect_eval
 from inspect_ai._eval.task.epochs import Epochs
 
-from eval_task import problem_eval
+from eval_task import problem_eval, bongard_eval
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -101,11 +101,25 @@ def _extract_results_json(log, args) -> dict:
                 "terminated_early": False,
             }
 
-            # Get answer and correctness from scores
+            # Get per-scorer answer/correctness. For single-scorer tasks this
+            # populates the top-level `answer`/`correct` fields (legacy
+            # shape). For multi-scorer tasks (e.g. bongard_eval has both
+            # nl_rule_scorer and python_rule_scorer) we ALSO record each
+            # scorer's output under sample_data["scores"][scorer_name].
             if sample.scores:
+                sample_data["scores"] = {}
                 for scorer_name, score in sample.scores.items():
-                    sample_data["answer"] = score.answer
-                    sample_data["correct"] = score.value == "C"
+                    sample_data["scores"][scorer_name] = {
+                        "answer": score.answer,
+                        "correct": score.value == "C",
+                        "explanation": score.explanation,
+                    }
+                    # Also populate the legacy top-level fields from the
+                    # first scorer (kept for backward compat with analyze_results.py
+                    # callers that expect a single `correct`/`answer`).
+                    if "answer" not in sample_data or sample_data["answer"] is None:
+                        sample_data["answer"] = score.answer
+                        sample_data["correct"] = score.value == "C"
 
             # Get per-sample metrics from metadata
             metadata = sample.metadata or {}
@@ -114,6 +128,11 @@ def _extract_results_json(log, args) -> dict:
                         "terminated_early"]:
                 if key in metadata:
                     sample_data[key] = metadata[key]
+
+            # Bongard: also surface the intermediate NL rule (from
+            # extract_rule side-channel node) for easier post-hoc review
+            if "nl_rule" in metadata:
+                sample_data["nl_rule"] = metadata["nl_rule"]
 
             # Capture solver-level errors stored in metadata
             if "solver_error" in metadata:
@@ -263,16 +282,33 @@ def main():
         run_subdir = f"{timestamp}_{config_name}_{display_model}"
         run_log_dir = str(log_base / run_subdir)
 
-    task = problem_eval(
-        dataset_path=args.dataset,
-        config_path=args.config,
-        model_override=args.model or "",
-        thinking=args.thinking,
-        provider_override=args.provider or "",
-        base_url=args.base_url or "",
-        experiment_log_dir=run_log_dir,
-        timeout=args.timeout,
-    )
+    # Auto-select the task factory based on config filename.
+    # Bongard configs (config_bongard_*.yaml) use bongard_eval, which
+    # replaces the literal-match scorer with an LLM-as-judge NL scorer
+    # against `state.metadata["nl_rule"]`.
+    config_stem = Path(args.config).stem
+    if config_stem.startswith("config_bongard"):
+        task = bongard_eval(
+            dataset_path=args.dataset,
+            config_path=args.config,
+            model_override=args.model or "",
+            thinking=args.thinking,
+            provider_override=args.provider or "",
+            base_url=args.base_url or "",
+            experiment_log_dir=run_log_dir,
+            timeout=args.timeout,
+        )
+    else:
+        task = problem_eval(
+            dataset_path=args.dataset,
+            config_path=args.config,
+            model_override=args.model or "",
+            thinking=args.thinking,
+            provider_override=args.provider or "",
+            base_url=args.base_url or "",
+            experiment_log_dir=run_log_dir,
+            timeout=args.timeout,
+        )
 
     eval_kwargs = {}
     if args.limit is not None:

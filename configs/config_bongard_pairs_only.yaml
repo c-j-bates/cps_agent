@@ -1,0 +1,57 @@
+agent_class: multi_turn
+
+# Ablation #2: pair-contrast + hypotheses in one step.
+# No exhaustive category enumeration.
+# Has the keep_generating loop so it matches the treatment in budget.
+
+llm:
+  provider: claude
+  model: claude-opus-4-6
+  temperature: 0.7
+  max_tokens: 65536
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker."
+
+graph:
+  entry: solve
+
+  nodes:
+    solve:
+      prompt: |
+        {problem}
+        Think like a scientist. First, identify a set of positive-negative example pairs with minimal differences. Use these to generate hypotheses. Follow the principle of Occam's Razor and prioritize the simpler hypotheses, all else equal. Then solve.
+    keep_generating:
+      prompt: |
+        You haven't found the answer yet. Keep generating new ideas.
+
+  edges:
+    - { from: solve, to: keep_generating }
+    - { from: keep_generating, to: keep_generating, max_repeats: 5 }
+
+  side_channels:
+    - id: answer_check
+      run_after: [solve, keep_generating]
+      check_answer: true
+      graph:
+        entry: give_solution
+        nodes:
+          give_solution:
+            prompt: |
+              Give your full solution: state the rule in a single sentence.
+          extract_rule:
+            prompt: |
+              Reply with ONLY the rule as a single short sentence.
+              No labels, no markdown, no explanation — just the rule itself on a single line.
+          write_python_function:
+            prompt: |
+              Now encode that rule as a Python function.
+              The function must be named `rule`, take a single string argument, and return True if the string satisfies the rule (Group A) or False otherwise (Group B):
+
+              ```python
+              def rule(s: str) -> bool:
+                  ...
+              ```
+
+              Reply with ONLY a single ```python code block containing the function. No explanation, no tests. Use only the Python standard library.
+        edges:
+          - { from: give_solution, to: extract_rule }
+          - { from: extract_rule, to: write_python_function }
