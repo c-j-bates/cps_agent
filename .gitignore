@@ -22,5 +22,14 @@ experiment_logs/
 outputs/
 eval_results/
 
+# Local-only docs (kept on disk, not committed)
+docs/*
+
+# Local-only retroactive fix helpers (kept on disk, not committed)
+retroactive_fix*.py
+
+# Intermediate dataset-generation artifacts
+dataset_sketches/bongard_pilot*.csv
+
 # OS
 .DS_Store

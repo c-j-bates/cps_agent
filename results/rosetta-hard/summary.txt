@@ -2,60 +2,127 @@
 Strategy                       Model                        Acc     C/T #Prob   Mean Tok     Time  Calls  Avg Steps
 -------------------------------------------------------------------------------------------------------------------
 generic_baseline               claude-opus-4-6-instant   32.0% 16/50     50     12,278   10020s    150        1.0
+generic_step_back              claude-opus-4-6-instant   85.1% 40/47     47     91,263   13139s    367        3.3
 -------------------------------------------------------------------------------------------------------------------
 
 Per-Problem Results (C=correct, X=incorrect):
------------------------------------------------------
-Problem      generic_baseline|claude-opus-4-6-instant
------------------------------------------------------
-1                                                   X 
-2                                                   X 
-3                                                   X 
-4                                                   X 
-5                                                   X 
-6                                                   X 
-7                                                   X 
-8                                                   X 
-9                                                   C 
-10                                                  C 
-11                                                  X 
-12                                                  C 
-13                                                  C 
-14                                                  X 
-15                                                  X 
-16                                                  C 
-17                                                  C 
-18                                                  X 
-19                                                  X 
-20                                                  C 
-21                                                  X 
-22                                                  X 
-23                                                  X 
-24                                                  C 
-25                                                  X 
-26                                                  X 
-27                                                  X 
-28                                                  X 
-29                                                  C 
-30                                                  X 
-31                                                  X 
-32                                                  X 
-33                                                  X 
-34                                                  C 
-35                                                  C 
-36                                                  X 
-37                                                  X 
-38                                                  C 
-39                                                  X 
-40                                                  X 
-41                                                  C 
-42                                                  X 
-43                                                  C 
-44                                                  C 
-45                                                  X 
-46                                                  X 
-47                                                  X 
-48                                                  X 
-49                                                  X 
-50                                                  C 
------------------------------------------------------
+------------------------------------------------------------------------------------------------
+Problem       generic_baseline|claude-opus-4-6-instant generic_step_back|claude-opus-4-6-instant
+------------------------------------------------------------------------------------------------
+1                                                    X                                         C 
+2                                                    X                                         C 
+3                                                    X                                         C 
+4                                                    X                                         C 
+5                                                    X                                         X 
+6                                                    X                                         C 
+7                                                    X                                         C 
+8                                                    X                                         C 
+9                                                    C                                         C 
+10                                                   C                                         C 
+11                                                   X                                         C 
+12                                                   C                                         C 
+13                                                   C                                         C 
+14                                                   X                                         C 
+15                                                   X                                         C 
+16                                                   C                                         C 
+17                                                   C                                         C 
+18                                                   X                                         C 
+19                                                   X                                         C 
+20                                                   C                                         C 
+21                                                   X                                         C 
+22                                                   X                                         C 
+23                                                   X                                         C 
+24                                                   C                                         C 
+25                                                   X                                         C 
+26                                                   X                                         C 
+27                                                   X                                         C 
+28                                                   X                                         X 
+29                                                   C                                         C 
+30                                                   X                                         C 
+31                                                   X                                         C 
+32                                                   X                                         C 
+33                                                   X                                         X 
+34                                                   C                                         X 
+35                                                   C                                         C 
+36                                                   X                                         X 
+37                                                   X                                         X 
+38                                                   C                                         C 
+39                                                   X                                         C 
+40                                                   X                                         C 
+41                                                   C                                         C 
+42                                                   X                                         C 
+43                                                   C                                         C 
+44                                                   C                                         C 
+45                                                   X                                         C 
+46                                                   X                                         C 
+47                                                   X                                         X 
+48                                                   X                                         - 
+49                                                   X                                         - 
+50                                                   C                                         - 
+------------------------------------------------------------------------------------------------
+
+Pairwise Overlap (both_C / only_A / only_B / both_X):
+------------------------------------------------------------------------------------------------------------------------------
+                                           generic_baseline|claude-opus-4-6-instant  generic_step_back|claude-opus-4-6-instant
+------------------------------------------------------------------------------------------------------------------------------
+ generic_baseline|claude-opus-4-6-instant                           14C   2A  26B   8X
+generic_step_back|claude-opus-4-6-instant                                                
+------------------------------------------------------------------------------------------------------------------------------
+
+Per-Problem Results (sorted by disagreement):
+------------------------------------------------------------------------------------------------------
+Problem       generic_baseline|claude-opus-4-6-instant generic_step_back|claude-opus-4-6-instant  Note
+------------------------------------------------------------------------------------------------------
+1                                                    X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+11                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+14                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+15                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+18                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+19                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+2                                                    X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+21                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+22                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+23                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+25                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+26                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+27                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+3                                                    X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+30                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+31                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+32                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+34                                                   C                                         X  <-- only: generic_baseline|claude-opus-4-6-instant
+39                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+4                                                    X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+40                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+42                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+45                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+46                                                   X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+50                                                   C                                         -  <-- only: generic_baseline|claude-opus-4-6-instant
+6                                                    X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+7                                                    X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+8                                                    X                                         C  <-- only: generic_step_back|claude-opus-4-6-instant
+10                                                   C                                         C
+12                                                   C                                         C
+13                                                   C                                         C
+16                                                   C                                         C
+17                                                   C                                         C
+20                                                   C                                         C
+24                                                   C                                         C
+28                                                   X                                         X
+29                                                   C                                         C
+33                                                   X                                         X
+35                                                   C                                         C
+36                                                   X                                         X
+37                                                   X                                         X
+38                                                   C                                         C
+41                                                   C                                         C
+43                                                   C                                         C
+44                                                   C                                         C
+47                                                   X                                         X
+48                                                   X                                         -
+49                                                   X                                         -
+5                                                    X                                         X
+9                                                    C                                         C
+------------------------------------------------------------------------------------------------------
+
+  28 problems with disagreement, 14 solved by all, 8 solved by none
