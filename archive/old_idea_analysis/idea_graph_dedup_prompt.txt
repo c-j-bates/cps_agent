@@ -1,0 +1,15 @@
+RAW ANALYSIS:
+{raw_analysis}
+
+INSTRUCTIONS:
+You are given the output of an idea graph analysis that traces how an LLM explored a cryptic crossword clue. The analysis contains sequential `graph[...].append(...)` statements that document each new idea as it appeared.
+
+Your task: produce a **cleaned** copy that removes duplicate and redundant ideas while preserving the original format and ordering. Two ideas are duplicates if they represent the same conceptual content, even if phrased differently (e.g., "reversal" and "reverse-direction" in the same category are duplicates; keep whichever appeared first).
+
+Rules:
+- Output ONLY the cleaned python code blocks — no other commentary.
+- Preserve the `# Key phrase: ...` comments and `graph[...].append(...)` format exactly.
+- Preserve the chronological order of first-occurrence ideas.
+- Remove an entry only when it is a true duplicate of an earlier entry in the SAME graph path (e.g., two entries both in `graph['indicators']['types']` with the same semantic meaning).
+- Entries in DIFFERENT paths are never duplicates of each other (e.g., "reversal" in `types` vs "reversal" in `subtypes` are both kept).
+- When in doubt, keep the entry.

@@ -1,10 +1,41 @@
+Title ideas:
+Prompting strategies for conceptual ideation in reasoning domains
+Prompting strategies for conceptual ideation in problem solving
+
+Possible high-level critiques to anticipate:
+-- Is it just a party trick? (I.e., any translation to real world science/research processes?)
+-- Our methods rely mostly on up-front enumeration of the span. How often will this actually work in real world problems?
+
 # Abstract
-Existing AI methods can be highly effective at solving well-specified problems. However, humans still surpass AI in handling novel problems, where the solver must simultaneously find a tractable formulation and a solution using that formulation. This work makes progress toward understanding what ingredients are currently missing from AI and proposes methods to close the gap. We first formalize this problem of simultaneously formulating and solving, which we label ``the creative problem-solving problem'', then use it to derive a simple, general-purpose prompting strategy aimed at one key part of the solving process. Using state of the art foundation models, we show that our prompting strategy outperforms related baselines on two challenging puzzle tasks chosen to target this aspect of problem solving, and at least matches performance of the "reasoning" versions of each model. Our formalism suggests good metaheuristics should be important to a solver's success and our analyses support this hypothesis, revealing specific failure modes in underperforming strategies. Finally, we suggest ways to build on this result through the lens of search metaheuristics.
+Generating new concepts that are interesting or useful requires both constructing the right space to search and searching it efficiently. The search algorithms that support humans' ability to innovate new concepts in this way are still poorly understood. And while researchers have developed ways to improve problem-solving in LLMs, only recently have their reasoning and instruction-following abilities advanced to the point where we can study search strategies separately from logical errors. In this work, we develop an optimization-based formulation of conceptually-innovative problem solving and leverage it to develop a set of simple prompting strategies that outperform reasonable baselines on text-based puzzles. Puzzles differed in what tactics they called for in order to find solutions efficiently. Specifically, cryptic crosswords lean on domain conventions (e.g., clues are partitioned into definition and wordplay portions and string operations are signaled by "indicator" words) while Bongard problems require attending to differences between positive and negative examples of the target concept. In either case, we find that prompting strategies that encourage LLM solvers to explicitly construct a search space and systematically enumerate it perform better than ablations and previous general-purpose problem-solving strategies. Analyses based on the idea of "intensification vs diversification" (from the search metaheuristics literature) support the hypothesis that our method elicited more systematic search policies, which improved performance. They also match performance by the most powerful "reasoning" variants of the same LLMs (Opus 4.6 and DeepSeek v3.2/v4). Output tokens were higher for our method compared to the reasoning models, but remained within the same order of magnitude. Future work could use our method to generate high-quality RL data for next-generation reasoning models with stronger conceptual innovation capabilities.
+
+<!-- Existing AI methods can be highly effective at solving well-specified problems. However, humans still surpass AI in handling novel problems, where the solver must simultaneously find a tractable formulation and a solution using that formulation. This work makes progress toward understanding what ingredients are currently missing from AI and proposes methods to close the gap. We first formalize this problem of simultaneously formulating and solving, which we label ``the creative problem-solving problem'', then use it to derive a simple, general-purpose prompting strategy aimed at one key part of the solving process. Using state of the art foundation models, we show that our prompting strategy outperforms related baselines on two challenging puzzle tasks chosen to target this aspect of problem solving, and at least matches performance of the "reasoning" versions of each model. Our formalism suggests good metaheuristics should be important to a solver's success and our analyses support this hypothesis, revealing specific failure modes in underperforming strategies. Finally, we suggest ways to build on this result through the lens of search metaheuristics. -->
 
 
 # Introduction
 
-Automated problem solving has an extensive history in cognitive science. Yet, the algorithms developed to date can still only reliably solve well-defined, well-characterized problems. By contrast, human problem-solvers frequently face problems that are related to but distinct from previous ones, and must simultaneously both define and solve them. New problems range from those that are relatively close to familiar problems (and thus more tractable) to those that are quite novel and challenging. The former are more common, such as a new game that is a slight variant on older ones, while the latter are rare and include major scientific breakthroughs. For convenience, I use ``creative problem solving'' (CPS) as an umbrella term, allowing that problems vary in their novelty and thus the amount of ``creativity'' they require.  Here, I formalize this problem in order to systematically study what is currently missing from automated problem-solving systems, what needs to be built to achieve human-level competence, and propose productive avenues toward that goal.
+Many types of problems require some degree of conceptual innovation. In these cases, one must bootstrap from known concepts to novel ones. Finding useful new concepts, then, depends on the ability to efficiently search through the space of possibilities. At a high level, there are two important considerations for achieving efficient search: constructing the right search space and searching it intelligently. On the former, the space should be as small as possible while including the desired concepts, and could be iteratively revised given feedback. On the latter, prior knowledge and well-tuned metaheuristics can boost efficiency. To what extent can LLMs be instructed or trained to conceptually innovate during problem solving by following these principles? Here, we take a step toward addressing this question by developing a mathematical formalization that captures the kind of problem-solving just described and using it to derive simple prompting strategies that outperform reasonable baselines designed to target reasoning, per se.
+
+Existing work on problem solving and reasoning in LLMs tends to focus on soundness of conclusions (https://scholar.dsu.edu/cgi/viewcontent.cgi?article=1457&context=bispapers, https://www.cell.com/patterns/fulltext/S2666-3899(25)00218-1). By contrast, here we focus on the problem of conceptual innovation, for which sound reasoning is necessary but not sufficient. Here, the solver must also search over the space of problem formalizations, informed by their knowledge of other, solved problems. To study these skills in isolation, we examine challenging text-based puzzles that require some amount of reasoning but for which success hinges critically on the ability to search intelligently through a concept space. We constrain our domains to be ones in which LLMs have strong knowledge of the conventions and mechanics and exhibit mostly sound reasoning.
+
+## Metaheuristics for conceptual innovation
+-- Constructing the space:
+--- Organize prior problems into classes, where instances within a class correspond to a coordinate in some vector space
+---- This work: Pick domains where LLMs can do this pretty readily
+----- Minute cryptic: Structure known: Definition, wordplay, indicators, fodder, etc.
+----- Bongard: Data-driven feature discovery
+---- Future work: Harder science/research problems require more advanced tricks (e.g. advanced analogical and abstraction techniques) to find related problems
+--- 
+
+-- Searching the space:
+--- This work: Sorted Cartesian product (relies on LLM's knowledge) + focusing on minimal paired differences
+--- Future work: More advanced metaheuristics?
+
+Slightly pointing this direction: Methods for generating self-play data using self-generated abstractions:
+-- https://arxiv.org/pdf/2510.01833
+-- https://arxiv.org/pdf/2409.08642
+
+<!-- Automated problem solving has an extensive history in cognitive science. Yet, the algorithms developed to date can still only reliably solve well-defined, well-characterized problems. By contrast, human problem-solvers frequently face problems that are related to but distinct from previous ones, and must simultaneously both define and solve them. New problems range from those that are relatively close to familiar problems (and thus more tractable) to those that are quite novel and challenging. The former are more common, such as a new game that is a slight variant on older ones, while the latter are rare and include major scientific breakthroughs. For convenience, I use ``creative problem solving'' (CPS) as an umbrella term, allowing that problems vary in their novelty and thus the amount of ``creativity'' they require.  Here, I formalize this problem in order to systematically study what is currently missing from automated problem-solving systems, what needs to be built to achieve human-level competence, and propose productive avenues toward that goal. -->
 
 ## Formalization
 $$\argmin_{\theta \in \Theta,\, \Theta \in \Theta_0,} \sigma(y)$$
@@ -43,7 +74,14 @@ We can map the CPS formalism onto decipherment puzzles by saying that solving a 
 ## Implications
 
 ## Related works
+-- Program induction with LLMs
+--- LLMs and DNNs generally have been employed to improve search policies via learning. This work similarly uses LLMs to achieve intelligent search policies, but also relaxes the output space to "fuzzy" programs expressed in NL
+-- Metaheuristics in program induction
+--- Rule et al.: https://www.nature.com/articles/s41467-024-50966-x : Metaprograms could be seen as a kind of metaheuristic that is complementary to ours. The operations identified in that work would mostly need to happen internally in the forward pass of the LLM. Here, we do not assume LLMs are given the kinds of symbolic primitives in symbolic program synthesis models and thus focus on how to approximately construct such spaces while solving, as well as how to search them efficiently.
 -- Cognitive foundations for reasoning (https://arxiv.org/pdf/2511.16660). Differs from present work mostly in that the cognitive skills listed are largely descriptive rather than proscriptive. Many of them are needed in order for solvers to succeed in the present puzzle tasks, but here we partly prescribe how to implement them in problems where the solution steps cannot be immediately inferred.
+-- Cognitive history work: Nancy Nersessian
+-- Simon's Generalized Problem Solver
+-- Cogsci work (e.g. Shuze's) showing people tend to try to reuse related solutions
 
 # Methods
 
@@ -54,8 +92,13 @@ We can map the CPS formalism onto decipherment puzzles by saying that solving a 
 -- deepseek-v3.2 (chat/reasoner)
 -- claude-opus-4.6 (instant/max-thinking)
 ## Prompting strategies
-
+-- General-purpose prompting strategies exist, but they are not specifically targeted at guiding search over problem formulations
+-- Nonetheless, they more elicit similar behaviors to our novel CPS prompting
+-- Comparison to these baselines is important to establish i) how effective our CPS prompting is compared to more general problem solving prompting strategies, and ii) whether CPS elicits distinct thinking strategies that support improved performance
 {Fill in details for me based on code base}
+### Self-discover 
+### Step back
+### Think step-by-step
 
 # Results
 
@@ -97,6 +140,12 @@ Claim: \Theta provides useful baseline scaffolding for good search metaheuristic
 
 
 # Discussion
+-- Key points:
+--- Prompts are *general purpose*, i.e. they don't insert any domain-specific hints. Implication: LLM solvers must generate their own (discretized) search space.
+--- Prompting strategies can be seen as inducing sophisticated search metaheuristics. E.g., in Bongard, i) examining minimal pair differences as starting point and ii) extracting patterns from data generated by hypothesis tests to spur new hypotheses. In both Bongard and cryptics: identifying and enumerating parent classes in a balanced way. Interesting side point: Scientific ideation can then also be seen as revolving around a set of sophisticated search metaheuristics.
+
+# Future directions
+-- Combine search-targeted scaffolding with "pure reasoning" scaffolding to target domains like math with trickier reasoning
 
 # Conclusion
 

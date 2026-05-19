@@ -1,0 +1,52 @@
+LLM OUTPUTS:
+{llm_outputs}
+
+ANALYSIS STRUCTURE
+```python
+graph = {
+	'definition': {
+		[],  # E.g. [<word1>, <word6>, ...]
+	},
+	'indicators': {  # Lists of independent possibilities along each dimension, such that their combinations would generate a cartesian product over possible sets of indicators existing in the clue
+		'words': [],  # Which words might be indicator words, e.g. [<word1>, <word2>, (<word2>, <word3>), ...], where a tuple is used if the indicator spans multiple words
+		'types': [],  # High-level types, e.g. [charade, anagram, ...]
+		'subtypes': [],  # When higher level type provides incomplete information, e.g. ["selection:select odd numbered letters", ...]
+	},
+	'indicator_sequences': {
+		[]  # E.g. [(charade, anagram), (anagram, deletion), ...] where each item is a separate alternative solution route
+	},
+	'answer_guesses': {
+		[]  # List of guesses that could be worked backward from
+	}
+	'operations': {
+	  []
+	  """List of independent proposals for how to put it all together, fixing a definition portion and word play portion, choosing indicator words and defining their operations, and finally applying those operations in the chosen order to produce a guess. E.g.:
+	  [
+		  {
+			  1: [(anagram, fodder-substring-of-clue), result1]
+			  2: [(deletion, fodder-substring-of-result1), result2]
+			  ...
+		  },
+		  {
+			  1: [(substitution, fodder-substring-of-clue), result1]
+			  2: [(concatenation, fodder-substring-of-result1), result2]
+			  ...
+		  },
+		  ...
+		]
+	  """
+	}
+
+```
+
+INSTRUCTIONS
+Strictly follow the json structure above to analyze the LLM outputs. Go line by line, detecting whenever a new idea has been generated. In some cases, the LLM may have used exact and proper terminology (e.g. charades, substitution, etc.), while in other cases it may describe it in some other way. For the latter, do your best to interpret the idea in terms of standard cryptic crossword terminology. Do not neglect 'operations' field: record whenever there is a unique attempt at putting it all together to generate a guess. It is also important to keep a trace of the order in which ideas were added. Thus, to document added ideas, always express this in python code, like:
+
+```python
+# Key phrase: <key phrase from text>
+graph['definition'].append(<word1>)
+
+# Key phrase: <key phrase from text>
+graph['indicators']['types'].append(deletion)
+```
+etc.

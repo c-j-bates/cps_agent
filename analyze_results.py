@@ -19,6 +19,7 @@ Usage:
 import argparse
 import json
 import math
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -48,14 +49,19 @@ MODEL_ORDER = [
     "claude-opus-4-6-thinking",
     "deepseek-chat",
     "deepseek-reasoner",
+    "deepseek-v4-pro-instant",
+    "deepseek-v4-pro-thinking",
 ]
 
-# Colors for each model (consistent across all plots).
+# Colors for each model (consistent across all plots). Each family uses a
+# light/dark pair for the instant/thinking variants so they read as one model.
 MODEL_COLORS = {
-    "claude-opus-4-6-instant": "#4C72B0",
-    "claude-opus-4-6-thinking": "#012661",
-    "deepseek-chat": "#DD8452",
-    "deepseek-reasoner": "#C44E52",
+    "claude-opus-4-6-instant": "#4C72B0",   # mid blue
+    "claude-opus-4-6-thinking": "#012661",  # navy
+    "deepseek-chat": "#DD8452",             # warm orange
+    "deepseek-reasoner": "#C44E52",         # rust
+    "deepseek-v4-pro-instant": "#6BB392",   # soft sage
+    "deepseek-v4-pro-thinking": "#1F6E47",  # deep forest
 }
 
 STRATEGY_DISPLAY = {
@@ -63,7 +69,8 @@ STRATEGY_DISPLAY = {
     "keep_thinking_step_by_step": "keep-thinking-\nstep-by-step",
     "step_back": "step-back",
     "self_discover": "self-discover",
-    "generate_vars": "generate-vars",
+    # "generate_vars": "generate-vars",
+    "generate_vars": r"generate-$\Theta$",
 }
 
 # Flat version (no newlines) for legend labels
@@ -72,7 +79,8 @@ STRATEGY_DISPLAY_FLAT = {
     "keep_thinking_step_by_step": "keep-thinking-step-by-step",
     "step_back": "step-back",
     "self_discover": "self-discover",
-    "generate_vars": "generate-vars",
+    # "generate_vars": "generate-vars",
+    "generate_vars": r"generate-$\Theta$",
 }
 
 STRATEGY_COLORS = {
@@ -84,15 +92,279 @@ STRATEGY_COLORS = {
 }
 
 
-def load_results(results_dir: str) -> list[dict]:
-    """Load all JSON result files from a directory."""
+_BONGARD_OVERALL_RE = re.compile(r"overall\s+([0-9.]+)%")
+
+
+def _looks_like_code(s: str) -> bool:
+    """Heuristic: does this string look like a Python code block?"""
+    if not s:
+        return False
+    s = s.strip()
+    return s.startswith("```") or s.startswith("def ")
+
+
+def repair_bongard_json(data: dict) -> bool:
+    """Fix the stale `scores.nl_rule_scorer.answer` field on each sample.
+
+    Historically Inspect AI's `model_graded_qa` hardcoded Score.answer to
+    state.output.completion, which for Bongard is the Python function.
+    That left the NL-judge's recorded `answer` containing code instead of
+    the NL rule. Samples have the real NL rule at the top-level
+    `sample.nl_rule` field; copy it into `scores.nl_rule_scorer.answer`.
+
+    Returns True if any sample was modified.
+    """
+    changed = False
+    for s in data.get("samples") or []:
+        scores = s.get("scores") or {}
+        nl = scores.get("nl_rule_scorer")
+        if not nl:
+            continue
+        if _looks_like_code(nl.get("answer") or "") and s.get("nl_rule"):
+            nl["answer"] = s["nl_rule"]
+            changed = True
+    return changed
+
+
+def _canonicalize_bongard_scores(data: dict) -> None:
+    """If a result file has per-scorer Bongard data, rewrite each sample's
+    top-level `correct`/`answer` fields (and the run's `aggregate`) to use
+    the `python_rule_scorer` (code-based) verdict instead of whichever
+    scorer happened to run first.
+
+    Also extracts the per-sample item accuracy (fraction of 22 items the
+    extracted Python function got right) from the scorer's explanation
+    string and stores it on each sample + as `aggregate.mean_item_accuracy`.
+
+    No-op for non-Bongard runs.
+    """
+    samples = data.get("samples") or []
+    if not samples:
+        return
+    first_scores = samples[0].get("scores") or {}
+    if "python_rule_scorer" not in first_scores:
+        return  # not a Bongard run
+
+    n_correct = 0
+    n_total = 0
+    item_accs = []
+    for s in samples:
+        scores = s.get("scores") or {}
+        py = scores.get("python_rule_scorer")
+        if py is None:
+            continue
+        s["correct"] = bool(py.get("correct"))
+        s["answer"] = py.get("answer")
+        m = _BONGARD_OVERALL_RE.search(str(py.get("explanation") or ""))
+        if m:
+            try:
+                s["item_accuracy"] = float(m.group(1)) / 100.0
+                item_accs.append(s["item_accuracy"])
+            except ValueError:
+                pass
+        n_total += 1
+        if s["correct"]:
+            n_correct += 1
+
+    agg = data.setdefault("aggregate", {})
+    agg["num_samples"] = n_total
+    agg["num_correct"] = n_correct
+    agg["accuracy"] = (n_correct / n_total) if n_total else 0.0
+    if item_accs:
+        agg["mean_item_accuracy"] = sum(item_accs) / len(item_accs)
+
+
+# `### Call N: <node_name> (<purpose>)`
+# `**Tokens**: 1,234 in / 56 out | 1.2s | 3 tool rounds`
+_MD_CALL_RE = re.compile(
+    r"^### Call (?P<n>\d+): (?P<name>.+?) \((?P<purpose>[^)]+)\)\s*$",
+    re.MULTILINE,
+)
+_MD_TOKENS_RE = re.compile(
+    r"^\*\*Tokens\*\*:\s*"
+    r"(?P<in>[\d,]+)\s*in\s*/\s*(?P<out>[\d,]+)\s*out"
+    r"(?:\s*\|\s*(?P<wall>[\d.]+)s)?",
+    re.MULTILINE,
+)
+
+
+def _parse_md_calls(md_path: Path) -> list[tuple[str, int, int, float]]:
+    """Return [(purpose, in_tokens, out_tokens, wall_seconds), ...] in order.
+
+    Reads the per-problem experiment-log markdown and pulls one record per
+    `### Call …` heading. Returns an empty list if the file is unreadable
+    or has no parseable calls.
+    """
+    try:
+        text = md_path.read_text()
+    except OSError:
+        return []
+    calls: list[tuple[str, int, int, float]] = []
+    headers = list(_MD_CALL_RE.finditer(text))
+    for i, m in enumerate(headers):
+        start = m.end()
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
+        block = text[start:end]
+        tm = _MD_TOKENS_RE.search(block)
+        if tm is None:
+            continue
+        in_tok = int(tm.group("in").replace(",", ""))
+        out_tok = int(tm.group("out").replace(",", ""))
+        wall = float(tm.group("wall") or 0.0)
+        calls.append((m.group("purpose"), in_tok, out_tok, wall))
+    return calls
+
+
+def _filter_last_iter(calls: list[tuple[str, int, int, float]]
+                      ) -> list[tuple[str, int, int, float]]:
+    """Keep main-channel calls plus side-channel calls after the last main.
+
+    Matches eval_task._filter_side_channels_to_last_iteration: when an
+    agent runs N main iterations each followed by a side-channel chain,
+    earlier iterations' side-channel tokens were repeated intermediate
+    work and would inflate sums. Drop them; keep only the last
+    iteration's side-channel chain.
+    """
+    is_side = [c[0].startswith("side:") for c in calls]
+    last_main = -1
+    for i, side in enumerate(is_side):
+        if not side:
+            last_main = i
+    if last_main < 0:
+        return list(calls)
+    return [c for i, (c, side) in enumerate(zip(calls, is_side))
+            if not side or i > last_main]
+
+
+def _recompute_tokens_from_logs(data: dict, repo_root: Path) -> int:
+    """Rewrite per-sample token counts on the loaded result dict in memory.
+
+    Reads the per-problem ``.md`` logs under ``data['experiment_log_dir']``,
+    applies ``_filter_last_iter``, and updates each sample's
+    ``input_tokens``/``output_tokens``/``total_tokens``/
+    ``wall_time_seconds``/``llm_calls`` with the filtered sums. Also
+    refreshes the run-level ``aggregate`` token totals.
+
+    The files on disk (both ``experiment_logs/`` and ``eval_results/``)
+    are NOT modified — this is purely an in-memory adjustment so the
+    plots and tables reflect the side-channel-filtered counts without
+    touching your collected data.
+
+    Returns the number of samples updated. Silently no-ops if the
+    ``experiment_log_dir`` link is missing or no logs are parseable.
+    """
+    log_dir_str = data.get("experiment_log_dir") or ""
+    if not log_dir_str:
+        return 0
+    log_dir = repo_root / log_dir_str
+    if not log_dir.is_dir():
+        return 0
+
+    # {problem_id: [agg_for_epoch_in_chronological_order, ...]}
+    per_problem: dict[int, list[dict]] = defaultdict(list)
+    for subdir in sorted(log_dir.iterdir()):
+        if not subdir.is_dir():
+            continue
+        md = subdir / f"{subdir.name}.md"
+        if not md.is_file():
+            continue
+        # Get problem_id from sibling .json metadata, falling back to the
+        # subdir-name suffix.
+        meta_json = subdir / f"{subdir.name}.json"
+        pid: int | None = None
+        if meta_json.is_file():
+            try:
+                pid = int(json.loads(meta_json.read_text())
+                          .get("metadata", {}).get("problem_id"))
+            except (json.JSONDecodeError, TypeError, ValueError, OSError):
+                pid = None
+        if pid is None:
+            m = re.search(r"_(\d+)$", subdir.name)
+            if not m:
+                continue
+            pid = int(m.group(1))
+
+        calls = _filter_last_iter(_parse_md_calls(md))
+        in_sum = sum(c[1] for c in calls)
+        out_sum = sum(c[2] for c in calls)
+        wall_sum = sum(c[3] for c in calls)
+        per_problem[pid].append({
+            "input_tokens": in_sum,
+            "output_tokens": out_sum,
+            "total_tokens": in_sum + out_sum,
+            "wall_time_seconds": round(wall_sum, 2),
+            "llm_calls": len(calls),
+        })
+
+    if not per_problem:
+        return 0
+
+    samples = data.get("samples", [])
+    seen_idx: dict[int, int] = defaultdict(int)
+    updated = 0
+    for s in samples:
+        try:
+            pid = int(s.get("id"))
+        except (TypeError, ValueError):
+            continue
+        epochs = per_problem.get(pid)
+        if not epochs:
+            continue
+        idx = seen_idx[pid]
+        if idx >= len(epochs):
+            continue
+        agg = epochs[idx]
+        seen_idx[pid] += 1
+        for k, v in agg.items():
+            s[k] = v
+        updated += 1
+
+    if updated:
+        agg = data.setdefault("aggregate", {})
+        agg["total_input_tokens"] = sum(s.get("input_tokens", 0) for s in samples)
+        agg["total_output_tokens"] = sum(s.get("output_tokens", 0) for s in samples)
+        agg["total_tokens"] = (
+            agg["total_input_tokens"] + agg["total_output_tokens"]
+        )
+        if samples:
+            agg["mean_tokens_per_sample"] = agg["total_tokens"] / len(samples)
+        agg["total_wall_time"] = round(
+            sum(s.get("wall_time_seconds", 0) for s in samples), 2
+        )
+        agg["total_llm_calls"] = sum(s.get("llm_calls", 0) for s in samples)
+
+    return updated
+
+
+def load_results(results_dir: str,
+                 recompute_tokens: bool = True,
+                 repo_root: Path | None = None) -> list[dict]:
+    """Load all JSON result files from a directory.
+
+    For Bongard runs (samples carry `scores.python_rule_scorer`), the
+    top-level `correct`/`accuracy` fields are rewritten in-place to
+    reflect the code-based scorer — so every downstream table/plot
+    automatically reports code-scorer numbers rather than the LLM judge.
+
+    When multiple runs share the same (canonical_strategy, canonical_model),
+    the most recent one wins (filenames are timestamp-prefixed and sort
+    lexically by recency). Superseded files stay on disk.
+
+    When ``recompute_tokens=True`` (default), per-sample token counts are
+    re-derived from the markdown experiment logs and the side-channel
+    filter applied in memory. The files on disk are never modified.
+    """
     results = []
     results_path = Path(results_dir)
     if not results_path.exists():
         print(f"Error: {results_dir} does not exist.")
         sys.exit(1)
 
+    if repo_root is None:
+        repo_root = Path(__file__).parent.resolve()
+
     skipped = 0
+    n_token_updates = 0
     for f in sorted(results_path.glob("*.json")):
         with open(f) as fh:
             data = json.load(fh)
@@ -102,19 +374,44 @@ def load_results(results_dir: str) -> list[dict]:
                 skipped += 1
                 print(f"  Skipping {f.name} (no samples — {data.get('eval_status', 'unknown')})")
                 continue
+            _canonicalize_bongard_scores(data)
+            if recompute_tokens:
+                n_token_updates += _recompute_tokens_from_logs(data, repo_root)
             results.append(data)
 
     if not results:
         print(f"No result files with samples found in {results_dir}")
         sys.exit(1)
 
-    return results
+    if n_token_updates:
+        print(f"  Recomputed tokens (side-channel filter) for "
+              f"{n_token_updates} samples from experiment_logs/")
+
+    # Dedup by (strategy, model): keep the most recent run per key.
+    # Filenames sort lexically by their YYYYMMDD_HHMMSS prefix, so the
+    # last entry in a sorted group is the newest.
+    by_key: dict[tuple[str, str], dict] = {}
+    for r in sorted(results, key=lambda r: r.get("_file", "")):
+        key = (
+            canonical_strategy(r.get("config_name", "?")),
+            canonical_model(r.get("model", "?"), r.get("thinking")),
+        )
+        by_key[key] = r
+    if len(by_key) < len(results):
+        superseded = len(results) - len(by_key)
+        print(f"  Deduped {superseded} older run(s) by (strategy, model); "
+              f"kept most-recent each")
+    return list(by_key.values())
 
 
 def canonical_strategy(config_name: str) -> str:
     """Extract the strategy name from a config_name string."""
-    name = config_name.replace("config_minute_cryptic_", "").replace("config_", "")
-    return name or "default"
+    benchmark_strings = ["minute_cryptic_", "rosetta_", "bongard_", "generic_"]
+    # name = config_name.replace("config_minute_cryptic_", "").replace("config_", "")
+    for s in benchmark_strings:
+        config_name = config_name.replace(s, "")
+    config_name = config_name.replace("config_", "")
+    return config_name or "default"
 
 
 def canonical_model(model: str, thinking=None) -> str:
@@ -131,6 +428,10 @@ def canonical_model(model: str, thinking=None) -> str:
         if model == "deepseek-reasoner" and thinking:
             return "deepseek-reasoner"
         return "deepseek-chat"
+    if model in ("deepseek-v4-pro",):
+        if thinking and thinking is not False:
+            return "deepseek-v4-pro-thinking"
+        return "deepseek-v4-pro-instant"
     if model == "claude-opus-4-6":
         if thinking and thinking is not False:
             return "claude-opus-4-6-thinking"
@@ -175,7 +476,7 @@ def _num_unique_problems(r: dict) -> int:
     return len(set(s["id"] for s in r.get("samples", [])))
 
 
-def _mean_tokens_per_problem(r: dict, token_key: str = "total_tokens") -> float:
+def _mean_tokens_per_problem(r: dict, token_key: str = "output_tokens") -> float:
     """Compute mean tokens per problem (averaging across epochs per problem, then across problems)."""
     by_problem: dict[int, list[float]] = defaultdict(list)
     for s in r.get("samples", []):
@@ -184,6 +485,14 @@ def _mean_tokens_per_problem(r: dict, token_key: str = "total_tokens") -> float:
         return 0.0
     # Mean across epochs for each problem, then mean across problems
     return sum(sum(v) / len(v) for v in by_problem.values()) / len(by_problem)
+
+
+def _median_tokens_per_problem(r: dict, token_key: str = "output_tokens") -> float:
+    """Compute median tokens per problem (across epochs and problems)."""
+    counts = []
+    for s in r.get("samples", []):
+        counts.append(s.get(token_key, 0))
+    return np.median(counts)
 
 
 def print_summary_table(results: list[dict]) -> str:
@@ -197,30 +506,53 @@ def print_summary_table(results: list[dict]) -> str:
             "strategy": canonical_strategy(r.get("config_name", "?")),
             "model": canonical_model(r.get("model", "?"), r.get("thinking")),
             "accuracy": agg.get("accuracy", 0),
+            "item_accuracy": agg.get("mean_item_accuracy"),  # Bongard only
             "correct": agg.get("num_correct", 0),
             "total": agg.get("num_samples", 0),
             "n_problems": n_problems,
             "mean_tokens": _mean_tokens_per_problem(r),
+            "median_tokens": _median_tokens_per_problem(r),
             "wall_time": agg.get("total_wall_time", 0),
             "llm_calls": agg.get("total_llm_calls", 0),
             "mean_steps": agg.get("mean_graph_steps", 0),
         })
 
-    header = (
-        f"{'Strategy':<30} {'Model':<25} {'Acc':>6} {'C/T':>7} "
-        f"{'#Prob':>5} {'Mean Tok':>10} {'Time':>8} {'Calls':>6} {'Avg Steps':>10}"
-    )
+    # Show the Item Acc column only if ANY run has it (= Bongard results)
+    show_item_acc = any(row["item_accuracy"] is not None for row in rows)
+
+    if show_item_acc:
+        header = (
+            f"{'Strategy':<30} {'Model':<25} {'Acc':>6} {'ItemAcc':>8} {'C/T':>7} "
+            f"{'#Prob':>5} {'Mean Tok':>10} {'Time':>8} {'Calls':>6} {'Avg Steps':>10}"
+        )
+    else:
+        header = (
+            f"{'Strategy':<30} {'Model':<25} {'Acc':>6} {'C/T':>7} "
+            f"{'#Prob':>5} {'Mean Tok':>10} {'Time':>8} {'Calls':>6} {'Avg Steps':>10}"
+        )
     sep = "-" * len(header)
 
     lines = [sep, header, sep]
     for row in rows:
-        line = (
-            f"{row['strategy']:<30} {row['model']:<25} "
-            f"{row['accuracy']:>5.1%} {row['correct']:>2}/{row['total']:<3} "
-            f"{row['n_problems']:>5} {row['mean_tokens']:>10,.0f} "
-            f"{row['wall_time']:>7.0f}s {row['llm_calls']:>6} "
-            f"{row['mean_steps']:>10.1f}"
-        )
+        item_cell = (f"{row['item_accuracy']:>7.1%}"
+                     if row["item_accuracy"] is not None else f"{'—':>7}")
+        if show_item_acc:
+            line = (
+                f"{row['strategy']:<30} {row['model']:<25} "
+                f"{row['accuracy']:>5.1%} {item_cell:>8} "
+                f"{row['correct']:>2}/{row['total']:<3} "
+                f"{row['n_problems']:>5} {row['mean_tokens']:>10,.0f} "
+                f"{row['wall_time']:>7.0f}s {row['llm_calls']:>6} "
+                f"{row['mean_steps']:>10.1f}"
+            )
+        else:
+            line = (
+                f"{row['strategy']:<30} {row['model']:<25} "
+                f"{row['accuracy']:>5.1%} {row['correct']:>2}/{row['total']:<3} "
+                f"{row['n_problems']:>5} {row['mean_tokens']:>10,.0f} "
+                f"{row['wall_time']:>7.0f}s {row['llm_calls']:>6} "
+                f"{row['mean_steps']:>10.1f}"
+            )
         lines.append(line)
     lines.append(sep)
 
@@ -289,6 +621,7 @@ def generate_latex_summary(results: list[dict], output_dir: Path) -> str:
             "correct": agg.get("num_correct", 0),
             "total": agg.get("num_samples", 0),
             "mean_tokens": _mean_tokens_per_problem(r),
+            "median_tokens": _median_tokens_per_problem(r),
             "llm_calls": agg.get("total_llm_calls", 0),
             "mean_steps": agg.get("mean_graph_steps", 0),
         })
@@ -793,7 +1126,9 @@ def plot_accuracy_by_model(results: list[dict], output_dir: Path):
 def plot_tokens(results: list[dict], output_dir: Path):
     """Grouped bar chart of mean tokens per problem by strategy, color-coded by model."""
     strategies, models, data = _build_grouped_data(
-        results, lambda r: _mean_tokens_per_problem(r)
+        results,
+        lambda r: _median_tokens_per_problem(r)
+        # lambda r: _mean_tokens_per_problem(r)
     )
 
     fig, ax = plt.subplots(figsize=(max(8, len(strategies) * 2.5), 5))
@@ -812,7 +1147,9 @@ def plot_tokens(results: list[dict], output_dir: Path):
 def plot_tokens_by_model(results: list[dict], output_dir: Path):
     """Grouped bar chart of mean tokens per problem by model, color-coded by strategy."""
     strategies, models, data = _build_grouped_data(
-        results, lambda r: _mean_tokens_per_problem(r)
+        results,
+        lambda r: _median_tokens_per_problem(r)
+        # lambda r: _mean_tokens_per_problem(r)
     )
 
     fig, ax = plt.subplots(figsize=(max(8, len(models) * 2.5), 5))
@@ -828,38 +1165,137 @@ def plot_tokens_by_model(results: list[dict], output_dir: Path):
     print(f"  Saved: {path}")
 
 
-def plot_tokens_vs_accuracy(results: list[dict], output_dir: Path):
-    """Scatter plot of mean token usage vs accuracy, color-coded by model."""
-    results = sort_results(results)
+def _tokens_per_problem_subset(r: dict, subset: str = "all",
+                                stat: str = "median",
+                                token_key: str = "output_tokens") -> float | None:
+    """Per-problem token statistic, optionally restricted to (un)solved samples.
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    Samples are grouped by problem ID; within each problem we average over
+    epochs (matching ``_mean_tokens_per_problem``). The ``stat`` argument
+    then aggregates across problems.
+
+    subset:
+        "all"      → every sample
+        "solved"   → samples where s["correct"] is truthy
+        "unsolved" → samples where s["correct"] is falsy
+
+    Returns None when no samples match the subset (so callers can skip).
+    """
+    by_problem: dict[int, list[float]] = defaultdict(list)
+    for s in r.get("samples", []):
+        if subset == "solved" and not s.get("correct"):
+            continue
+        if subset == "unsolved" and s.get("correct"):
+            continue
+        by_problem[s["id"]].append(s.get(token_key, 0))
+    if not by_problem:
+        return None
+    per_problem = [sum(v) / len(v) for v in by_problem.values()]
+    if stat == "mean":
+        return sum(per_problem) / len(per_problem)
+    return float(np.median(per_problem))
+
+
+def _subset_accuracy(r: dict, subset: str = "all") -> float | None:
+    """Accuracy (%) over the ``subset`` of samples. Returns None if empty.
+
+    For ``"solved"`` this is always 100%; for ``"unsolved"`` it's 0% — those
+    aren't useful, but the function stays consistent with the token helper.
+    """
+    samples = r.get("samples", [])
+    if subset == "all":
+        if not samples:
+            return None
+        n_correct = sum(1 for s in samples if s.get("correct"))
+        return 100.0 * n_correct / len(samples)
+    matching = [
+        s for s in samples
+        if (subset == "solved" and s.get("correct"))
+        or (subset == "unsolved" and not s.get("correct"))
+    ]
+    if not matching:
+        return None
+    n_correct = sum(1 for s in matching if s.get("correct"))
+    return 100.0 * n_correct / len(matching)
+
+
+def _draw_tokens_vs_accuracy_panel(ax, results: list[dict], *,
+                                    subset: str, stat: str,
+                                    show_legend: bool):
+    """One scatter panel: tokens (stat over subset) vs accuracy."""
+    try:
+        from adjustText import adjust_text  # type: ignore
+    except ImportError:
+        adjust_text = None
+
     plotted_models = set()
+    texts = []
 
     for r in results:
         model = canonical_model(r.get("model", "?"), r.get("thinking"))
         strategy = canonical_strategy(r.get("config_name", "?"))
+        tok_stat = _tokens_per_problem_subset(r, subset=subset, stat=stat)
+        if tok_stat is None:
+            continue
+        # Accuracy is always reported over "all" samples (so a point's y
+        # value reflects the run's overall performance, even when the
+        # x-axis is restricted to solved/unsolved samples — that's the
+        # informative pairing).
         accuracy = r.get("aggregate", {}).get("accuracy", 0) * 100
-        mean_tok = _mean_tokens_per_problem(r)
         color = MODEL_COLORS.get(model, "gray")
 
-        label = model if model not in plotted_models else None
+        label = model if (show_legend and model not in plotted_models) else None
         plotted_models.add(model)
 
-        ax.scatter(mean_tok, accuracy, color=color, label=label,
-                   s=80, edgecolors="white", linewidth=0.5, zorder=3)
-        # Annotate with strategy name
+        ax.scatter(tok_stat, accuracy, color=color, label=label,
+                   s=70, edgecolors="white", linewidth=0.5, zorder=3)
         display_strategy = STRATEGY_DISPLAY.get(strategy, strategy).replace("\n", " ")
-        ax.annotate(display_strategy, (mean_tok, accuracy),
-                    textcoords="offset points", xytext=(6, 4),
-                    fontsize=7, alpha=0.7)
+        texts.append(ax.text(tok_stat, accuracy, display_strategy,
+                             fontsize=6.5, alpha=0.85))
 
-    ax.set_xlabel("Mean Tokens per Problem")
-    ax.set_ylabel("Accuracy (%)")
-    ax.set_title("Token Usage vs Accuracy")
-    ax.legend(fontsize=8, loc="best")
+    if adjust_text is not None and texts:
+        adjust_text(
+            texts, ax=ax,
+            arrowprops=dict(arrowstyle="-", color="gray", lw=0.4, alpha=0.5),
+            expand=(1.6, 1.8),
+            force_text=(0.8, 1.2),
+            force_static=(0.4, 0.6),
+            only_move={"text": "xy", "static": "xy"},
+            min_arrow_len=8,
+        )
+
+    subset_lbl = {"all": "all", "solved": "solved", "unsolved": "unsolved"}[subset]
+    stat_lbl = {"mean": "Mean", "median": "Median"}[stat]
+    ax.set_xlabel(f"{stat_lbl} Output Tokens / Problem ({subset_lbl})")
+    ax.set_ylabel("Overall Accuracy (%)")
+    ax.set_title(f"{stat_lbl} tokens — {subset_lbl}")
+    if show_legend:
+        ax.legend(fontsize=7, loc="best")
     ax.grid(True, alpha=0.3)
 
-    plt.tight_layout()
+
+def plot_tokens_vs_accuracy(results: list[dict], output_dir: Path):
+    """Tokens-vs-accuracy scatter grid.
+
+    Grid layout: rows = {median, mean}, columns = {all, solved, unsolved}.
+    Each panel is a model-colored scatter of per-run (tokens, accuracy)
+    pairs with strategy labels placed by ``adjustText`` (if installed).
+    """
+    results = sort_results(results)
+
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10), sharey=True)
+    for row, stat in enumerate(["median", "mean"]):
+        for col, subset in enumerate(["all", "solved", "unsolved"]):
+            _draw_tokens_vs_accuracy_panel(
+                axes[row][col], results,
+                subset=subset, stat=stat,
+                show_legend=(row == 0 and col == 0),
+            )
+
+    fig.suptitle("Output Tokens per Problem vs Accuracy "
+                 "(rows: median / mean; cols: all / solved / unsolved)",
+                 fontsize=12)
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
     path = output_dir / "tokens_vs_accuracy.png"
     fig.savefig(path, dpi=150)
     plt.close(fig)
@@ -1100,7 +1536,8 @@ def plot_solution_iterations(results: list[dict], output_dir: Path):
             ax.plot(iters, cumulative, marker="o", markersize=4,
                     color=color, label=model, linewidth=1.5)
 
-        display_strategy = STRATEGY_DISPLAY_FLAT.get(strategy, strategy)
+        # display_strategy = STRATEGY_DISPLAY_FLAT.get(strategy, strategy)
+        display_strategy = canonical_strategy(strategy)
         ax.set_title(display_strategy, fontsize=10)
         ax.set_xlabel("Answer-Check Iteration")
         ax.set_ylabel("Proportion Solved")
@@ -1173,7 +1610,7 @@ def load_tda_profiles(tda_results_dir: str) -> dict:
 
 def print_tda_summary(profiles: dict) -> str:
     """Print a summary table of TDA creativity features by strategy."""
-    from tda_analysis.comparison import FEATURE_NAMES
+    from tda_analysis_minute_cryptic.comparison import FEATURE_NAMES
 
     strategies = sorted(profiles.keys())
     lines = ["\n── TDA Creativity Feature Profiles ──\n"]
@@ -1212,12 +1649,37 @@ def main():
                              "'all' (every epoch correct)")
     parser.add_argument("--tda-results-dir", default=None,
                         metavar="DIR",
-                        help="TDA results directory (from tda_analysis.run_tda) "
+                        help="TDA results directory (from tda_analysis_minute_cryptic"
+                             ".run_tda or tda_analysis_rosetta.run_tda) "
                              "containing comparison/strategy_profiles.json")
+    parser.add_argument("--repair-bongard-jsons", action="store_true",
+                        help="Rewrite each Bongard JSON in-place so that "
+                             "`scores.nl_rule_scorer.answer` contains the "
+                             "actual NL rule (taken from the sample's "
+                             "top-level `nl_rule` field), instead of the "
+                             "Python code block that Inspect AI's "
+                             "model_graded_qa originally put there.")
     args = parser.parse_args()
 
     results = load_results(args.results_dir)
     print(f"\nLoaded {len(results)} result files from {args.results_dir}/\n")
+
+    if args.repair_bongard_jsons:
+        results_path = Path(args.results_dir)
+        repaired_count = 0
+        for data in results:
+            if repair_bongard_json(data):
+                repaired_count += 1
+                # Re-serialize, excluding the transient "_file" and any
+                # runtime-only fields we added
+                out = {k: v for k, v in data.items() if k != "_file"}
+                (results_path / data["_file"]).write_text(
+                    json.dumps(out, indent=2)
+                )
+        print(f"Repair: rewrote {repaired_count} JSON file(s) "
+              f"to fix scores.nl_rule_scorer.answer")
+        # Reload so downstream display reflects the repaired state on disk
+        results = load_results(args.results_dir)
 
     # Summary table
     table_str = print_summary_table(results)

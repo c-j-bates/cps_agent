@@ -1,0 +1,35 @@
+agent_class: multi_turn
+
+llm:
+  provider: claude
+  model: claude-opus-4-6
+  temperature: 0.7
+  max_tokens: 65536
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker."
+
+graph:
+  entry: solve
+
+  nodes:
+    solve:
+      prompt: |
+        {problem}
+        Solve the above problem.
+
+  edges: []
+
+  side_channels:
+    - id: answer_check
+      run_after: [solve]
+      check_answer: true
+      graph:
+        entry: give_solution
+        nodes:
+          give_solution:
+            prompt: |
+              Give your full solution. Note: The solution will not be byzantine or esoteric, so use Occam's Razor, prioritizing and exhausting the set of reasonable and simple possibilities.
+          extract_answer:
+            prompt: |
+              Reply with ONLY the final answer. No labels, no markdown, no explanation, no punctuation — just the answer itself on a single line.
+        edges:
+          - { from: give_solution, to: extract_answer }

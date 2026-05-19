@@ -9,7 +9,8 @@ Generates Bongard-style problems where:
   - Trivial classifiers are filtered by base rate
 
 Usage:
-    python -m dataset_sketches.bongard_generator --n 50 --output dataset.csv
+    PYTHONPATH=generators/bongard python generators/bongard/bongard_generator.py \
+        --n 100 --output datasets/bongard_text.csv
 """
 
 import csv
@@ -22,7 +23,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Callable
 
-from dataset_sketches.bongard_dsl import (
+from bongard_dsl import (
     FEATURE_REGISTRY,
     CATEGORY_DIFFICULTY,
     Classifier,

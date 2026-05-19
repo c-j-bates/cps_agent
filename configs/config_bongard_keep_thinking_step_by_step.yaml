@@ -14,10 +14,10 @@ graph:
     solve:
       prompt: |
         {problem}
-        Solve this Bongard problem. Think step-by-step.
+        INSTRUCTION: Solve this Bongard problem. Think step-by-step.
     keep_thinking:
       prompt: |
-        You haven't found the answer yet. Keep generating new ideas.
+        INSTRUCTION: You haven't found the answer yet. Keep generating new ideas.
 
   edges:
     - { from: solve, to: keep_thinking }

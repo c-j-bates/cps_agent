@@ -22,6 +22,16 @@ experiment_logs/
 outputs/
 eval_results/
 
+# Working backups (regeneratable; kept on disk locally)
+eval_results_backup/
+experiment_logs_backup/
+
+# Computed TDA outputs (regeneratable from experiment_logs/)
+tda_results/
+
+# Claude Code worktrees (embedded git repos — not part of project)
+.claude/
+
 # Local-only docs (kept on disk, not committed)
 docs/*
 
@@ -29,7 +39,7 @@ docs/*
 retroactive_fix*.py
 
 # Intermediate dataset-generation artifacts
-dataset_sketches/bongard_pilot*.csv
+generators/bongard/bongard_pilot*.csv
 
 # OS
 .DS_Store

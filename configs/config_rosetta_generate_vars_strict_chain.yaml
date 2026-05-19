@@ -1,0 +1,90 @@
+agent_class: multi_turn
+
+llm:
+  provider: claude
+  model: claude-opus-4-6
+  temperature: 0.7
+  max_tokens: 65536
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker."
+
+graph:
+  entry: generate_vars
+
+  nodes:
+    generate_vars:
+      prompt: |
+        {problem}
+        Do not solve this problem yet! Instead, first, exhaustively generate the set of variables that define this class of problem. These should be independent of this particular problem instance. DO NOT start pursuing an answer yet. You have a tendency to jump to conclusions before you've considered all reasonable possibilities. This happens when you generate a guess early on and then treat it as truth. Here, you need to fight this tendency: keep things as abstract as possible in this phase so you don't generate guesses that you subsequently anchor on. As you generate your variables, make sure they will serve you well in the next phase which is the hypothesis-generation. Your hypotheses will be of the form:
+        Hypothesis XX:
+        Variable assignments:  # These should be granular enough to uniquely specify a hypothesis
+        <v1>: <value>
+        <v2>: <value>
+        ...
+        Test: <test hypothesis against problem instance>
+        Outcome: <success | failure>
+        Notes: <any useful thoughts | None>
+
+        DO NOT start generating hypotheses yet. Just list the abstract variables that you will use to generate them later.
+    enumerate_values:
+      prompt: |
+        For each variable, exhaustively generate the possible values they could take on. Then stop.
+    generate_combos:
+      prompt: |
+        Exhaustively generate reasonable combinations of values, working through each combination, strictly abiding by the format:
+        Hypothesis XX:
+        Variable assignments:  # These should be granular enough to uniquely specify a hypothesis
+        <v1>: <value>
+        <v2>: <value>
+        ...
+        Test: <test hypothesis against problem instance>
+        Outcome: <success | failure>
+        Notes: <1 sentence max of thoughts or "None">
+        
+        IMPORTANT: 
+        -- Your output should strictly be a chain of hypotheses. NO EXTRA TEXT IN BETWEEN.
+        -- You may find that you need to make an adjustment to your proposed variables (e.g. to make them more granular). This is okay. The most important thing is that the set of variable assignments uniquely specify a hypothesis. 
+        -- Note: The solution will not be byzantine or esoteric, so use Occam's Razor, prioritizing and exhausting the set of reasonable and simple possibilities.
+        
+        Only stop when you think you've converged.
+    keep_generating:
+      prompt: |
+        You haven't found the answer yet. Keep generating new ideas by trying out new variable assignments. Remember:
+        Exhaustively generate reasonable combinations of values, working through each combination, strictly abiding by the format:
+        Your hypotheses will be of the form:
+        Hypothesis XX:
+        Variable assignments:  # These should be granular enough to uniquely specify a hypothesis
+        <v1>: <value>
+        <v2>: <value>
+        ...
+        Test: <test hypothesis against problem instance>
+        Outcome: <success | failure>
+        Notes: <1 sentence max of thoughts or "None">
+        
+        IMPORTANT: 
+        -- Your output should strictly be a chain of hypotheses. NO EXTRA TEXT IN BETWEEN.
+        -- You may find that you need to make an adjustment to your proposed variables (e.g. to make them more granular). This is okay. The most important thing is that the set of variable assignments uniquely specify a hypothesis. 
+        -- Note: The solution will not be byzantine or esoteric, so use Occam's Razor, prioritizing and exhausting the set of reasonable and simple possibilities.
+        
+        Only stop when you think you've converged.
+
+  edges:
+    - { from: generate_vars, to: enumerate_values }
+    - { from: enumerate_values, to: generate_combos }
+    - { from: generate_combos, to: keep_generating }
+    - { from: keep_generating, to: keep_generating, max_repeats: 5 }
+
+  side_channels:
+    - id: answer_check
+      run_after: [generate_combos, keep_generating]
+      check_answer: true
+      graph:
+        entry: give_solution
+        nodes:
+          give_solution:
+            prompt: |
+              Give your full solution.
+          extract_answer:
+            prompt: |
+              Reply with ONLY the final answer. No labels, no markdown, no explanation, no punctuation — just the answer itself on a single line.
+        edges:
+          - { from: give_solution, to: extract_answer }

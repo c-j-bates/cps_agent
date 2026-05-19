@@ -1,18 +1,18 @@
 -------------------------------------------------------------------------------------------------------------------
 Strategy                       Model                        Acc     C/T #Prob   Mean Tok     Time  Calls  Avg Steps
 -------------------------------------------------------------------------------------------------------------------
-baseline                       claude-opus-4-6-instant   76.7% 33/43     43      2,364    1136s    129        3.0
-baseline                       claude-opus-4-6-thinking  90.7% 39/43     43      8,894    4466s    129        3.0
-baseline                       deepseek-chat             38.8% 50/129    43      5,102    7997s    387        3.0
-baseline                       deepseek-reasoner         68.2% 88/129    43     20,847   22176s    387        3.0
-keep_thinking_step_by_step     claude-opus-4-6-instant   93.0% 40/43     43      9,157    1944s    207        1.6
-keep_thinking_step_by_step     deepseek-chat             57.4% 74/129    43     55,948   23591s   1455        3.8
-step_back                      claude-opus-4-6-instant   93.0% 40/43     43     17,209    3150s    274        2.8
-step_back                      deepseek-chat             55.8% 72/129    43     94,435   57556s   1656        4.9
-self_discover                  claude-opus-4-6-instant   100.0% 43/43     43     26,385    4137s    279        4.2
-self_discover                  deepseek-chat             68.2% 88/129    43    189,320   77012s   1653        6.3
-generate_vars                  claude-opus-4-6-instant   100.0% 43/43     43     40,827    7953s    233        3.1
-generate_vars                  deepseek-chat             69.8% 90/129    43    125,147   65974s   1584        5.4
+baseline                       claude-opus-4-6-instant   76.7% 33/43     43        792    1136s    129        3.0
+baseline                       claude-opus-4-6-thinking  90.7% 39/43     43      5,247    4466s    129        3.0
+baseline                       deepseek-chat             38.8% 50/129    43      1,761    7996s    387        3.0
+baseline                       deepseek-reasoner         68.2% 88/129    43      7,302   22175s    387        3.0
+keep_thinking_step_by_step     claude-opus-4-6-instant   93.0% 40/43     43      1,373    1595s    155        1.6
+keep_thinking_step_by_step     deepseek-chat             57.4% 74/129    43      5,022   17949s    743        3.8
+step_back                      claude-opus-4-6-instant   93.0% 40/43     43      2,392    2635s    206        2.8
+step_back                      deepseek-chat             55.8% 72/129    43      8,100   40030s    896        4.9
+self_discover                  claude-opus-4-6-instant   100.0% 43/43     43      4,238    4038s    265        4.2
+self_discover                  deepseek-chat             68.2% 88/129    43     15,532   65819s   1067        6.3
+generate_vars                  claude-opus-4-6-instant   100.0% 43/43     43      8,593    7883s    221        3.1
+generate_vars                  deepseek-chat             69.8% 90/129    43     12,767   48117s    958        5.4
 -------------------------------------------------------------------------------------------------------------------
 
 Per-Problem Results (correct/total epochs):

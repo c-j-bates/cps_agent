@@ -304,10 +304,16 @@ class MultiTurnAgent:
         return self.llm(full_prompt)
 
     def _log_call(self, label: str, purpose: str, logged_prompt: str, response: str):
+        # Stamp the latest usage record with the channel (purpose). Done
+        # outside the exp_logger guard so token-bookkeeping works even
+        # when no experiment logger is attached.
+        latest = self._get_latest_usage()
+        if latest is not None:
+            latest.channel = purpose
         if self.exp_logger:
             self.exp_logger.log_llm_call(
                 label, purpose, logged_prompt, response,
-                self._get_latest_usage(),
+                latest,
                 reasoning=getattr(response, "reasoning", ""),
             )
 
@@ -464,13 +470,36 @@ class MultiTurnAgent:
                     )
                     last_response = sc_last
                     if correct:
-                        logger.info(
-                            f"Early termination: correct answer after "
-                            f"{current_id} [visit {visit_num}]"
-                        )
+                        # Only flag as "terminated early" if we're actually
+                        # bypassing unexhausted outgoing work. For graphs
+                        # with no outgoing edge from this node (e.g. the
+                        # single-node baseline), the loop would have ended
+                        # naturally anyway — so "early termination" is a
+                        # misnomer there.
+                        has_remaining_work = False
+                        for edge in graph.edges:
+                            if edge.from_id != current_id:
+                                continue
+                            key = (edge.from_id, edge.to_id)
+                            if key in edge_remaining and edge_remaining[key] <= 0:
+                                continue  # this edge already exhausted
+                            has_remaining_work = True
+                            break
+
+                        if has_remaining_work:
+                            logger.info(
+                                f"Early termination: correct answer after "
+                                f"{current_id} [visit {visit_num}]"
+                            )
+                            self.terminated_early = True
+                        else:
+                            logger.info(
+                                f"Correct answer after {current_id} "
+                                f"[visit {visit_num}] (no remaining work to "
+                                f"skip — not flagging as early termination)"
+                            )
                         trace_entry["branches"].append(branch_entry)
                         own_trace.append(trace_entry)
-                        self.terminated_early = True
                         return own_trace, last_response
                 else:
                     if sc_last is not None:
@@ -547,8 +576,11 @@ class SingleTurnAgent:
         prompt = self.config.prompt.format(problem=problem)
         response = self.llm(prompt)
         logger.info(f"SingleTurnAgent response length: {len(response)}")
+        latest = self._get_latest_usage()
+        if latest is not None:
+            latest.channel = "main_channel"
         if self.exp_logger:
-            self.exp_logger.log_llm_call("turn1", "solve", prompt, response, self._get_latest_usage(), reasoning=getattr(response, "reasoning", ""))
+            self.exp_logger.log_llm_call("turn1", "solve", prompt, response, latest, reasoning=getattr(response, "reasoning", ""))
         return response
 
 

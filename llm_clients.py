@@ -81,11 +81,21 @@ class LLMResponse(str):
 
 @dataclass
 class LLMCallRecord:
-    """Token usage from a single LLM client __call__ invocation."""
+    """Token usage from a single LLM client __call__ invocation.
+
+    ``channel`` is stamped by the caller (typically MultiTurnAgent._log_call)
+    so token totals can later be filtered by channel. Values:
+      - ``"main_channel"`` for main-graph nodes
+      - ``"side:<sc_id>"`` (possibly nested as ``side:a/side:b``) for side
+        channels
+      - ``""`` for records not produced by an agent (e.g. coding/analysis
+        calls). Treated as main-channel-equivalent by downstream filters.
+    """
     input_tokens: int = 0
     output_tokens: int = 0
     tool_rounds: int = 0
     wall_time_seconds: float = 0.0
+    channel: str = ""
 
 
 # Tool definition for Python code execution
@@ -390,6 +400,8 @@ class OpenAIClient:
     tools_config: dict = field(default_factory=dict)
     thinking: bool | str = False  # False=off, True=enable, str=effort level
     timeout: float | None = None  # Per-request timeout in seconds (None = SDK default of 600s)
+    max_api_retries: int = 5
+    retry_base_delay: float = 5.0
     _client: object = field(default=None, repr=False, init=False)
 
     def __post_init__(self):
@@ -418,6 +430,67 @@ class OpenAIClient:
             client_kwargs["timeout"] = httpx.Timeout(None, connect=10.0)
         self._client = openai.OpenAI(**client_kwargs)
         self.usage_log: list[LLMCallRecord] = []
+
+        # Warn once if using deprecated DeepSeek model aliases. The names
+        # `deepseek-chat` and `deepseek-reasoner` now silently route to
+        # `deepseek-v4-flash` (non-thinking and thinking respectively) and
+        # are scheduled for removal on 2026-07-24.
+        if (self.base_url and "deepseek.com" in self.base_url
+                and self.model in ("deepseek-chat", "deepseek-reasoner")):
+            warn_key = f"deepseek_legacy_{self.model}"
+            if warn_key not in _warned_once:
+                _warned_once.add(warn_key)
+                logger.warning(
+                    f"DeepSeek model '{self.model}' is a deprecated alias "
+                    f"(retires 2026-07-24) and now routes to deepseek-v4-flash. "
+                    f"Update configs to 'deepseek-v4-flash' or 'deepseek-v4-pro'."
+                )
+
+    def _call_with_retry(self, kwargs: dict):
+        """Call OpenAI-compatible API with retry on transient errors."""
+        import httpx
+        import openai
+
+        for attempt in range(self.max_api_retries):
+            try:
+                response = self._client.chat.completions.create(**kwargs)
+            except (
+                httpx.RemoteProtocolError,
+                httpx.ReadError,
+                httpx.ConnectError,
+                httpx.ReadTimeout,
+                openai.APIStatusError,
+                openai.APIConnectionError,
+            ) as e:
+                if isinstance(e, openai.APIStatusError):
+                    if e.status_code < 500 and e.status_code != 429:
+                        raise
+                if attempt == self.max_api_retries - 1:
+                    raise
+                delay = self.retry_base_delay * (2 ** attempt)
+                logger.warning(
+                    f"OpenAI API error (attempt {attempt + 1}/{self.max_api_retries}): {e}  "
+                    f"Retrying in {delay:.0f}s..."
+                )
+                time.sleep(delay)
+                continue
+
+            if response is None or not getattr(response, "choices", None):
+                if attempt == self.max_api_retries - 1:
+                    raise RuntimeError(
+                        f"OpenAI API returned empty response after {self.max_api_retries} attempts"
+                    )
+                delay = self.retry_base_delay * (2 ** attempt)
+                logger.warning(
+                    f"OpenAI API returned empty response (attempt {attempt + 1}/{self.max_api_retries}).  "
+                    f"Retrying in {delay:.0f}s..."
+                )
+                time.sleep(delay)
+                continue
+
+            return response
+
+        raise RuntimeError("Unreachable")
 
     def __call__(self, prompt: str) -> str:
         start = time.monotonic()
@@ -458,24 +531,23 @@ class OpenAIClient:
             kwargs["extra_body"] = {"reasoning_effort": effort}
 
         # Cap max_tokens to provider limits to avoid 400 errors.
-        # DeepSeek cloud API limits (as of 2026-03):
-        #   deepseek-chat  (non-thinking): max 8,192
-        #   deepseek-reasoner (thinking):  max 65,536
+        # DeepSeek V4 (deepseek-v4-flash, deepseek-v4-pro): max output 384K
+        # for both thinking and non-thinking modes.
         # Ollama / other local: no known hard cap, skip capping.
         if is_deepseek_cloud and kwargs.get("max_tokens"):
-            cap = 65_536 if self.thinking else 8_192
+            cap = 384_000
             if kwargs["max_tokens"] > cap:
                 warn_key = f"deepseek_cap_{cap}"
                 if warn_key not in _warned_once:
                     _warned_once.add(warn_key)
                     logger.warning(
-                        f"max_tokens={kwargs['max_tokens']} exceeds DeepSeek "
-                        f"{'thinking' if self.thinking else 'non-thinking'} "
-                        f"limit of {cap}; capping to {cap} (Prompt: ...{prompt[-50:]})"
+                        f"max_tokens={kwargs['max_tokens']} exceeds DeepSeek V4 "
+                        f"output limit of {cap}; capping to {cap} "
+                        f"(Prompt: ...{prompt[-50:]})"
                     )
                 kwargs["max_tokens"] = cap
 
-        response = self._client.chat.completions.create(**kwargs)
+        response = self._call_with_retry(kwargs)
         msg = response.choices[0].message
         text = msg.content or ""
 
@@ -498,13 +570,17 @@ class OpenAIClient:
             if m:
                 reasoning = m.group(1).strip()
                 text = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL).strip()
-        logger.debug(f"OpenAI [{self.model}] tokens: "
-                      f"in={response.usage.prompt_tokens} out={response.usage.completion_tokens}")
-        self.usage_log.append(LLMCallRecord(
-            input_tokens=response.usage.prompt_tokens,
-            output_tokens=response.usage.completion_tokens,
-            wall_time_seconds=time.monotonic() - start,
-        ))
+        usage = getattr(response, "usage", None)
+        if usage:
+            logger.debug(f"OpenAI [{self.model}] tokens: "
+                          f"in={usage.prompt_tokens} out={usage.completion_tokens}")
+            self.usage_log.append(LLMCallRecord(
+                input_tokens=usage.prompt_tokens,
+                output_tokens=usage.completion_tokens,
+                wall_time_seconds=time.monotonic() - start,
+            ))
+        else:
+            logger.debug(f"OpenAI [{self.model}] response had no usage info")
         # print(LLMResponse(text, reasoning).full_text)
         # breakpoint()  # DON'T EVER DELETE ME!
         return LLMResponse(text, reasoning)
@@ -532,7 +608,7 @@ _PROVIDER_PRESETS: dict[str, dict] = {
     "deepseek-cloud": {
         "base_url": "https://api.deepseek.com/v1",
         "api_key_env": "DEEPSEEK_API_KEY",
-        "default_model": "deepseek-chat",
+        "default_model": "deepseek-v4-flash",
     },
     "ollama": {
         "base_url": "http://localhost:11434/v1",

@@ -2,62 +2,62 @@
 \centering
 \caption{Per-problem results (\cmark = correct, \xmark = incorrect).}
 \label{tab:per-problem}
-\begin{tabular}{lcc}
+\begin{tabular}{lccccccc}
 \toprule
-Problem & generic\_baseline claude-opus-4-6-instant & generic\_step\_back claude-opus-4-6-instant \\
+Problem & baseline deepseek-v4-pro-instant & baseline deepseek-v4-pro-thinking & keep\_thinking\_step\_by\_step deepseek-v4-pro-instant & step\_back deepseek-v4-pro-instant & self\_discover deepseek-v4-pro-instant & generate\_vars deepseek-v4-pro-instant & generate\_vars\_strict\_chain deepseek-v4-pro-instant \\
 \midrule
-1 & \xmark & \cmark \\
-2 & \xmark & \cmark \\
-3 & \xmark & \cmark \\
-4 & \xmark & \cmark \\
-5 & \xmark & \xmark \\
-6 & \xmark & \cmark \\
-7 & \xmark & \cmark \\
-8 & \xmark & \cmark \\
-9 & \cmark & \cmark \\
-10 & \cmark & \cmark \\
-11 & \xmark & \cmark \\
-12 & \cmark & \cmark \\
-13 & \cmark & \cmark \\
-14 & \xmark & \cmark \\
-15 & \xmark & \cmark \\
-16 & \cmark & \cmark \\
-17 & \cmark & \cmark \\
-18 & \xmark & \cmark \\
-19 & \xmark & \cmark \\
-20 & \cmark & \cmark \\
-21 & \xmark & \cmark \\
-22 & \xmark & \cmark \\
-23 & \xmark & \cmark \\
-24 & \cmark & \cmark \\
-25 & \xmark & \cmark \\
-26 & \xmark & \cmark \\
-27 & \xmark & \cmark \\
-28 & \xmark & \xmark \\
-29 & \cmark & \cmark \\
-30 & \xmark & \cmark \\
-31 & \xmark & \cmark \\
-32 & \xmark & \cmark \\
-33 & \xmark & \xmark \\
-34 & \cmark & \xmark \\
-35 & \cmark & \cmark \\
-36 & \xmark & \xmark \\
-37 & \xmark & \xmark \\
-38 & \cmark & \cmark \\
-39 & \xmark & \cmark \\
-40 & \xmark & \cmark \\
-41 & \cmark & \cmark \\
-42 & \xmark & \cmark \\
-43 & \cmark & \cmark \\
-44 & \cmark & \cmark \\
-45 & \xmark & \cmark \\
-46 & \xmark & \cmark \\
-47 & \xmark & \xmark \\
-48 & \xmark & -- \\
-49 & \xmark & -- \\
-50 & \cmark & -- \\
+1 & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+2 & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \cmark \\
+3 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+4 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+5 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+6 & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+7 & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark \\
+8 & \xmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark \\
+9 & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+10 & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark \\
+11 & \xmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+12 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+13 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+14 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+15 & \xmark & \cmark & \xmark & \xmark & \cmark & \cmark & \cmark \\
+16 & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & \xmark \\
+17 & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \cmark \\
+18 & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark \\
+19 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+20 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+21 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+22 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+23 & \xmark & \cmark & \xmark & \xmark & \cmark & \cmark & \xmark \\
+24 & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+25 & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \cmark \\
+26 & \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \xmark \\
+27 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+28 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+29 & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+30 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+31 & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark & \xmark \\
+32 & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+33 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+34 & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \cmark \\
+35 & \xmark & \cmark & \cmark & \xmark & \cmark & \cmark & \xmark \\
+36 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+37 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+38 & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \cmark \\
+39 & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+40 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+41 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+42 & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark \\
+43 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+44 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+45 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+46 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+47 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+48 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
+49 & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark \\
+50 & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\
 \midrule
-\textbf{Total} & \textbf{16/50} & \textbf{40/47} \\
+\textbf{Total} & \textbf{1/50} & \textbf{19/50} & \textbf{8/50} & \textbf{9/50} & \textbf{10/50} & \textbf{19/50} & \textbf{14/50} \\
 \bottomrule
 \end{tabular}
 \end{table}

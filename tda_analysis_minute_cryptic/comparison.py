@@ -28,14 +28,11 @@ FEATURE_NAMES = [
     "mean_nn_jaccard", "diameter",
 ]
 
-# Subset for radar charts (skip highly correlated / hard-to-interpret ones)
+# Subset for radar charts: entropy measures + n_ideas only (TDA / tree-shape
+# features excluded — they're highly correlated and harder to interpret).
 RADAR_FEATURES = [
     "n_ideas",
-    "h0_mean_death", "h0_cv",
-    "h1_total_pers",
-    "n_root_branches", "max_local_fanout", "completion_ratio",
-    "parse_entropy", "mechanism_entropy",
-    "mean_nn_jaccard", "diameter",
+    "parse_entropy", "mechanism_entropy", "execution_entropy", "output_entropy",
 ]
 
 
@@ -122,7 +119,7 @@ def plot_radar(strategy_profiles: dict[str, dict], output_path: str,
 
     strategies = sorted(strategy_profiles.keys())
     features_to_plot = [
-        f for f in FEATURE_NAMES
+        f for f in RADAR_FEATURES
         if any(f in strategy_profiles[s] and strategy_profiles[s][f]["mean"] != 0
                for s in strategies)
     ]

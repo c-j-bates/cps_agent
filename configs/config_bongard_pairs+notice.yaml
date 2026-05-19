@@ -1,0 +1,79 @@
+agent_class: multi_turn
+
+# Ablation #2: pair-contrast + hypotheses in one step.
+# No exhaustive category enumeration.
+# Has the keep_generating loop so it matches the treatment in budget.
+
+llm:
+  provider: claude
+  model: claude-opus-4-6
+  temperature: 0.7
+  max_tokens: 65536
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent scientific thinker."
+
+graph:
+  entry: solve
+
+  nodes:
+    solve:
+      prompt: |
+        {problem}
+
+        INSTRUCTION: Think like a scientist:
+        1. First, identify a set of positive-negative example pairs with minimal differences. Use these to generate hypotheses. 
+        2. Follow the principle of Occam's Razor and prioritize the simpler hypotheses, all else equal.
+        3. Scientists often stumble upon their best hypotheses when they notice some surprising regularity in the data they collect while testing a different hypothesis. For each hypothesis you try out, even if you decide it is not correct, consider whether it reveals any patterns that might lead to one or more other hypotheses. In other words, look to see if anything "jumps out at you." For the hypothesis generation phase, follow this template:
+
+        Hypothesis XX: <some hypothesis>
+        Test: <test hypothesis against data>
+        Outcome: <reject | accept>
+        Patterns noticed: <None | some-interesting-noticed-pattern>
+        Notes: <None | misc. thoughts>
+
+        You MUST always include the "Patterns noticed" field, even if you say "None".
+        Definition of "Pattern":
+        A pattern IS: 
+        -- A striking regularity unlikely to occur by chance
+        -- Expected to be rare (it's okay if you usually write "None")
+        -- Not attached to a particular hypothesis (i.e. bottom-up)
+        A pattern IS NOT: 
+        -- Observations about why the hypothesis was rejected
+        -- Notes about what is ruled out
+        -- Ideas for new hypotheses
+        -- Any other kind of miscellaneous thought
+    keep_generating:
+      prompt: |
+        INSTRUCTION: You haven't found the answer yet. Keep generating new ideas.
+
+  edges:
+    - { from: solve, to: keep_generating }
+    - { from: keep_generating, to: keep_generating, max_repeats: 5 }
+
+  side_channels:
+    - id: answer_check
+      run_after: [solve, keep_generating]
+      check_answer: true
+      graph:
+        entry: give_solution
+        nodes:
+          give_solution:
+            prompt: |
+              Give your full solution: state the rule in a single sentence.
+          extract_rule:
+            prompt: |
+              Reply with ONLY the rule as a single short sentence.
+              No labels, no markdown, no explanation — just the rule itself on a single line.
+          write_python_function:
+            prompt: |
+              Now encode that rule as a Python function.
+              The function must be named `rule`, take a single string argument, and return True if the string satisfies the rule (Group A) or False otherwise (Group B):
+
+              ```python
+              def rule(s: str) -> bool:
+                  ...
+              ```
+
+              Reply with ONLY a single ```python code block containing the function. No explanation, no tests. Use only the Python standard library.
+        edges:
+          - { from: give_solution, to: extract_rule }
+          - { from: extract_rule, to: write_python_function }

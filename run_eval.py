@@ -20,7 +20,9 @@ from datetime import datetime
 from pathlib import Path
 
 from inspect_ai import eval as inspect_eval
+from inspect_ai import eval_retry
 from inspect_ai._eval.task.epochs import Epochs
+from inspect_ai.log import read_eval_log
 
 from eval_task import problem_eval, bongard_eval
 
@@ -30,16 +32,29 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 def get_model_display_name(model: str, thinking: bool | str, provider: str) -> str:
     """Generate a display name for file naming that encodes the thinking level.
 
-    Claude:    claude-opus-4-6-instant  (no thinking)
-               claude-opus-4-6-max      (thinking=max)
-    DeepSeek:  deepseek-chat            (no thinking)
-               deepseek-reasoner        (thinking on)
+    Claude:    claude-opus-4-6-instant       (no thinking)
+               claude-opus-4-6-max           (thinking=max)
+    DeepSeek:  deepseek-v4-flash-instant     (no thinking)
+               deepseek-v4-flash-thinking    (thinking on)
+               deepseek-v4-pro-instant / -thinking, etc.
     """
     provider_lower = (provider or "").lower()
 
-    # DeepSeek: thinking on → deepseek-reasoner, off → deepseek-chat
+    # DeepSeek V4: encode the actual model and thinking state.
     if "deepseek" in provider_lower or "deepseek" in model.lower():
-        return "deepseek-reasoner" if thinking else "deepseek-chat"
+        # Map deprecated aliases to their V4-flash destination so file names
+        # reflect the model that actually ran.
+        if model in ("deepseek-chat", "deepseek-reasoner"):
+            logging.warning(
+                f"DeepSeek model '{model}' is a deprecated alias (retires "
+                f"2026-07-24) and now routes to deepseek-v4-flash. Update "
+                f"configs to 'deepseek-v4-flash' or 'deepseek-v4-pro'."
+            )
+            base = "deepseek-v4-flash"
+        else:
+            base = model
+        suffix = "thinking" if thinking else "instant"
+        return f"{base}-{suffix}"
 
     # Claude / Anthropic: append thinking level or "instant"
     if provider_lower in ("claude", "anthropic") or "claude" in model.lower():
@@ -223,6 +238,12 @@ def main():
              "(default: 600s). Increase for large local models.",
     )
     parser.add_argument(
+        "--max-tokens",
+        type=int, default=None,
+        help="Override the per-call max_tokens from the config "
+             "(applies to all LLM calls in this run).",
+    )
+    parser.add_argument(
         "--log-dir",
         default=None,
         help="Directory for Inspect logs (default: ./logs)",
@@ -259,7 +280,34 @@ def main():
              "flush progress to log more frequently, reducing lost work "
              "if the job is interrupted.",
     )
+    parser.add_argument(
+        "--log-buffer", type=int, default=1,
+        help="Samples to buffer before flushing to .eval log "
+             "(default: 1 — every sample flushed). Inspect's default is 10, "
+             "which loses up to 10 samples when a run is killed mid-stream.",
+    )
+    parser.add_argument(
+        "--no-nl-judge", action="store_true",
+        help="Bongard only: disable the LLM-as-judge scorer (`nl_rule_scorer`) "
+             "and score solely with the deterministic `python_rule_scorer`. "
+             "Default is to run both.",
+    )
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="Resume an incomplete run. Requires --exp-name so we can find "
+             "the stable Inspect AI log directory for this (exp, config, "
+             "model, thinking) combination. If a previous .eval log exists "
+             "there, calls inspect_ai.eval_retry on the most recent one — "
+             "completed samples are skipped, only incomplete/failed samples "
+             "re-run. If no log exists, falls through to a fresh eval().",
+    )
     args = parser.parse_args()
+
+    if args.resume and not args.exp_name:
+        parser.error(
+            "--resume requires --exp-name so the log directory can be "
+            "located from the run's identity."
+        )
 
     # Apply --exp-name as subdirectory under both output dirs
     results_dir = Path(args.results_dir)
@@ -282,10 +330,18 @@ def main():
         run_subdir = f"{timestamp}_{config_name}_{display_model}"
         run_log_dir = str(log_base / run_subdir)
 
+    # Derive a STABLE Inspect log_dir from the run identity so --resume
+    # knows where to find the previous run's logs. If --log-dir is passed
+    # explicitly, that wins.
+    inspect_log_dir = args.log_dir
+    if inspect_log_dir is None and args.exp_name:
+        inspect_log_dir = str(
+            Path("logs") / args.exp_name / f"{Path(args.config).stem}_{display_model}"
+        )
+
     # Auto-select the task factory based on config filename.
     # Bongard configs (config_bongard_*.yaml) use bongard_eval, which
-    # replaces the literal-match scorer with an LLM-as-judge NL scorer
-    # against `state.metadata["nl_rule"]`.
+    # adds an LLM-as-judge NL scorer and a python-function scorer.
     config_stem = Path(args.config).stem
     if config_stem.startswith("config_bongard"):
         task = bongard_eval(
@@ -297,6 +353,8 @@ def main():
             base_url=args.base_url or "",
             experiment_log_dir=run_log_dir,
             timeout=args.timeout,
+            max_tokens=args.max_tokens,
+            use_nl_judge=not args.no_nl_judge,
         )
     else:
         task = problem_eval(
@@ -308,21 +366,175 @@ def main():
             base_url=args.base_url or "",
             experiment_log_dir=run_log_dir,
             timeout=args.timeout,
+            max_tokens=args.max_tokens,
         )
 
     eval_kwargs = {}
     if args.limit is not None:
         eval_kwargs["limit"] = args.limit
-    if args.log_dir is not None:
-        eval_kwargs["log_dir"] = args.log_dir
+    if inspect_log_dir is not None:
+        eval_kwargs["log_dir"] = inspect_log_dir
     if args.epochs > 1:
         eval_kwargs["epochs"] = Epochs(args.epochs, reducer=args.epochs_reducer)
     if args.display is not None:
         eval_kwargs["display"] = args.display
     if args.max_connections is not None:
         eval_kwargs["max_connections"] = args.max_connections
+    if args.log_buffer is not None:
+        eval_kwargs["log_buffer"] = args.log_buffer
 
-    logs = inspect_eval(task, **eval_kwargs)
+    # --resume: find the most recent .eval file that matches this run's
+    # (config, model) signature and call eval_retry on it. Searches
+    # multiple candidate roots because Inspect's log files may live in
+    # different places depending on how the original run was invoked:
+    #   - logs/<exp_name>/<config>_<model>/   (new stable path)
+    #   - logs/                                (Inspect's default)
+    #   - experiment_logs/<exp_name>/...       (if user set --log-dir there)
+    prior_log = None
+    if args.resume:
+        config_stem = Path(args.config).stem
+        # Normalize for matching: lower, strip hyphens
+        def _norm(s: str) -> str:
+            return s.lower().replace("-", "").replace("_", "")
+        cfg_key = _norm(config_stem)
+        model_key = _norm(display_model)
+
+        # Inspect writes .eval files directly into its log_dir (no nesting),
+        # so a non-recursive glob of the direct log_dir parents is sufficient.
+        # Non-recursive also automatically excludes archive subdirs like
+        # `pre-probes-in-checker-bar/`.
+        search_roots = []
+        if inspect_log_dir and Path(inspect_log_dir).is_dir():
+            search_roots.append(Path(inspect_log_dir))
+        # Inspect's default log dir (where logs landed before the stable
+        # per-run subdir convention was in place).
+        if Path("logs").is_dir():
+            search_roots.append(Path("logs"))
+
+        # Dedupe by resolved absolute path in case the roots overlap.
+        seen: set[Path] = set()
+        candidates: list[Path] = []
+        for root in search_roots:
+            for p in root.glob("*.eval"):
+                key = p.resolve()
+                if key in seen:
+                    continue
+                seen.add(key)
+                candidates.append(p)
+
+        def _matches(p: Path) -> bool:
+            path_str = _norm(str(p))
+            return cfg_key in path_str and model_key in path_str
+
+        matches = [p for p in candidates if _matches(p)]
+        if matches:
+            # Pick the log with the most completed samples. Read each
+            # matched candidate once and cache status/counts for display.
+            # Priority:
+            #   1. Incomplete logs (status=error/started) with most scored
+            #   2. Successful logs (nothing to resume) as fallback only
+            def _scan(p: Path) -> dict:
+                try:
+                    log = read_eval_log(str(p))
+                    scored = sum(1 for s in (log.samples or []) if s.scores)
+                    total = len(log.samples or [])
+                    return {
+                        "scored": scored,
+                        "total": total,
+                        "status": log.status,
+                        "mtime": p.stat().st_mtime,
+                    }
+                except Exception as e:
+                    return {"scored": -1, "total": 0,
+                            "status": f"read_error:{type(e).__name__}",
+                            "mtime": p.stat().st_mtime}
+
+            scan_cache = {p: _scan(p) for p in matches}
+
+            def _rank_key(p: Path) -> tuple:
+                info = scan_cache[p]
+                # Incomplete runs rank ABOVE successful ones (we don't want
+                # to accidentally "resume" an already-done eval).
+                incomplete = 0 if info["status"] == "success" else 1
+                return (incomplete, info["scored"], info["mtime"])
+
+            ranked = sorted(matches, key=_rank_key, reverse=True)
+            prior_log = ranked[0]
+            if len(ranked) > 1:
+                print("Resume candidates (most-progressed incomplete first):")
+                for i, p in enumerate(ranked):
+                    info = scan_cache[p]
+                    print(f"    [{i}] {p.name}")
+                    print(f"        status={info['status']}, "
+                          f"scored={info['scored']}/{info['total']}")
+
+            # Footgun: the rank function prefers incomplete over success, so
+            # if both are present the auto-pick will resume an incomplete
+            # log even when a completed run already exists. In that case,
+            # ask the user instead of guessing.
+            statuses = {scan_cache[p]["status"] for p in ranked}
+            if "success" in statuses and len(statuses - {"success"}) > 0:
+                print("\nWARNING: candidates include both a successful (complete) "
+                      "run and incomplete runs. Auto-pick would choose the "
+                      "incomplete one and re-run work.")
+                while True:
+                    choice = input(
+                        f"Select index [0-{len(ranked)-1}] or 'q' to abort: "
+                    ).strip()
+                    if choice.lower() in ("q", "quit", "abort"):
+                        print("Aborted.")
+                        return
+                    try:
+                        idx = int(choice)
+                        if 0 <= idx < len(ranked):
+                            prior_log = ranked[idx]
+                            break
+                    except ValueError:
+                        pass
+                    print("Invalid selection; try again.")
+
+        if not matches and candidates:
+            # No match on the identity keys, but found .eval files — tell
+            # the user WHERE we looked and what we saw, so they can point
+            # us at the right log via --log-dir.
+            print(f"--resume: found {len(candidates)} log file(s) under "
+                  f"{[str(r) for r in search_roots]} but none matched "
+                  f"config={config_stem!r} model={display_model!r}. "
+                  f"Pass --log-dir <path> explicitly to resume from a "
+                  f"specific file. First few candidates:")
+            for p in sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)[:5]:
+                print(f"    {p}")
+
+    if prior_log is not None:
+        # ──────────────────────────────────────────────────────────────
+        # DEBUG BREAKPOINT: confirm we picked the right log before retry.
+        # Drop into pdb and inspect:
+        #   (Pdb) p prior_log                     # path picked
+        #   (Pdb) p matches                       # all candidates
+        #   (Pdb) p scored_cache                  # {path: (scored, mtime)}
+        #   (Pdb) from inspect_ai.log import read_eval_log
+        #   (Pdb) log = read_eval_log(str(prior_log))
+        #   (Pdb) p log.eval.task_args            # task args baked in
+        #   (Pdb) p log.status                    # started / error / success
+        #   (Pdb) p len(log.samples)              # total sample rows
+        #   (Pdb) p sum(1 for s in log.samples if s.scores)  # scored
+        #   (Pdb) p [s.id for s in log.samples if not s.scores]  # still to-do
+        #   (Pdb) c                               # continue
+        # Remove or comment the breakpoint() when done debugging.
+        # ──────────────────────────────────────────────────────────────
+        print(f"Resuming from {prior_log} — completed samples will be skipped.")
+        # eval_retry reuses task/model/config from the log file itself; we
+        # pass only runtime kwargs.
+        retry_kwargs = {}
+        for k in ("log_dir", "display", "max_connections", "log_buffer"):
+            if k in eval_kwargs:
+                retry_kwargs[k] = eval_kwargs[k]
+        logs = eval_retry(str(prior_log), **retry_kwargs)
+    else:
+        if args.resume:
+            print("--resume was set, but no matching prior log found. "
+                  "Running from scratch.")
+        logs = inspect_eval(task, **eval_kwargs)
 
     # Print summary and save results JSON
     for log in logs:

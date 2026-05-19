@@ -68,6 +68,7 @@ def _make_bongard_ground_truth(
     target_rule: str,
     positives_json: str,
     negatives_json: str,
+    probes_json: str = "",
 ):
     """Build a ground-truth checker for Bongard problems that inspects the
     solver's extracted Python function.
@@ -75,25 +76,28 @@ def _make_bongard_ground_truth(
     The agent calls this after each side-channel invocation. The `solution`
     passed in is the final side-channel response — i.e. the `rule(s: str)
     -> bool` Python function that the solver emitted at `write_python_function`.
-    We execute that function and check whether it classifies the 6 positives
-    as True and the 6 negatives as False. If so, early-terminate.
+    The checker returns True iff the function correctly classifies ALL of:
+      - the 6 positives  (rule(p) is True)
+      - the 6 negatives  (rule(n) is False)
+      - the held-out probe items   (rule(probe) == probe.label)
 
-    Note: agreement on shown examples doesn't guarantee correctness on
-    held-out probes or full semantic equivalence to the reference rule —
-    but it's a strong, deterministic, and cheap-to-compute signal. The
-    end-of-run scorers (LLM-judge and python_rule_scorer-on-probes) will
-    produce the authoritative verdict.
+    Including probes in the early-termination bar raises it to match the
+    python_rule_scorer's definition of "correct": overfitting the 12 shown
+    items alone no longer short-circuits the agent's loop. The agent keeps
+    iterating until the rule also generalizes to the probes.
     """
     import json as _json
 
     try:
         positives = _json.loads(positives_json) if positives_json else []
         negatives = _json.loads(negatives_json) if negatives_json else []
+        probes_raw = _json.loads(probes_json) if probes_json else []
     except _json.JSONDecodeError:
-        positives, negatives = [], []
+        positives, negatives, probes_raw = [], [], []
+
+    probes = [(p["item"], p.get("label") == "A") for p in probes_raw]
 
     def checker(problem: str, solution: str) -> tuple[bool, str]:
-
         # Fall back to never-matching if we don't have shown examples
         if not positives or not negatives:
             return False, "bongard checker: no positives/negatives available"
@@ -115,12 +119,25 @@ def _make_bongard_ground_truth(
         try:
             pos_ok = all(bool(rule_fn(p)) is True for p in positives)
             neg_ok = all(bool(rule_fn(n)) is False for n in negatives)
+            probe_ok = all(bool(rule_fn(item)) == truth for item, truth in probes)
         except Exception as e:
             return False, f"bongard checker: rule raised {type(e).__name__}: {e}"
 
-        if pos_ok and neg_ok:
-            return True, f"bongard checker: rule correctly classifies all {len(positives)}+{len(negatives)} shown examples"
-        return False, "bongard checker: rule does not separate shown examples"
+        shown_ok = pos_ok and neg_ok
+        if not shown_ok:
+            return False, "bongard checker: rule does not separate shown examples"
+        if probes and not probe_ok:
+            return False, (
+                "bongard checker: rule fits shown examples but fails "
+                f"{sum(1 for item, t in probes if bool(rule_fn(item)) != t)}/"
+                f"{len(probes)} held-out probes (overfit)"
+            )
+        return True, (
+            f"bongard checker: rule correctly classifies all "
+            f"{len(positives)}+{len(negatives)} shown examples"
+            + (f" and all {len(probes)} held-out probes"
+               if probes else "")
+        )
 
     return checker
 
@@ -128,6 +145,38 @@ def _make_bongard_ground_truth(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _filter_side_channels_to_last_iteration(usage):
+    """Drop side-channel records belonging to all but the last iteration.
+
+    Each agent call gets stamped with a ``channel`` attribute on its
+    LLMCallRecord — ``"main_channel"`` for main-graph nodes and
+    ``"side:<id>"`` (possibly nested) for side channels. Records are appended
+    in execution order, and side-channel calls always follow the main-channel
+    node that triggered them. So the "last iteration" is everything from
+    (and including) the last main-channel record onward, plus all earlier
+    main-channel records. Side-channel records from earlier iterations are
+    dropped.
+
+    Records without a stamped channel (e.g. analysis/coding calls made
+    outside an agent) are treated as main-channel-equivalent and kept.
+    """
+    last_main_idx = -1
+    for i, r in enumerate(usage):
+        ch = getattr(r, "channel", "") or ""
+        if not ch.startswith("side:"):
+            last_main_idx = i
+    if last_main_idx < 0:
+        return list(usage)
+    kept = []
+    for i, r in enumerate(usage):
+        ch = getattr(r, "channel", "") or ""
+        if not ch.startswith("side:"):
+            kept.append(r)
+        elif i > last_main_idx:
+            kept.append(r)
+    return kept
+
 
 def _find_side_channel_node_response(execution_tree, node_id: str) -> str | None:
     """Walk an execution_tree backwards and return the response of the most
@@ -272,11 +321,15 @@ def tree_search_solver(
 
             # Build ground truth checker from the sample's target so the agent
             # can stop early when it finds the correct answer.
-            # For Bongard samples (which have positives/negatives in metadata)
-            # we swap in a Python-function-based checker: the agent's
-            # early-termination hook fires when the solver's extracted
-            # `rule(s)` function correctly classifies all 12 shown examples.
-            # For everything else, fall back to the literal checker.
+            # For Bongard samples (which have positives/negatives/probes in
+            # metadata) we swap in a Python-function-based checker: the
+            # agent's early-termination hook fires when the solver's
+            # extracted `rule(s)` function correctly classifies ALL of:
+            #   - the 6 shown positives
+            #   - the 6 shown negatives
+            #   - the held-out probes
+            # Including probes in the bar prevents overfit early-termination
+            # (rule fits shown items but doesn't generalize).
             target = state.target.text if state.target else ""
             sample_meta = state.metadata or {}
             if sample_meta.get("positives") and sample_meta.get("negatives"):
@@ -284,6 +337,7 @@ def tree_search_solver(
                     target_rule=target,
                     positives_json=sample_meta["positives"],
                     negatives_json=sample_meta["negatives"],
+                    probes_json=sample_meta.get("probes", ""),
                 )
             else:
                 ground_truth = make_ground_truth(target)
@@ -336,8 +390,14 @@ def tree_search_solver(
         except Exception:
             logger.error(f"Error finalizing experiment logger: {traceback.format_exc()}")
 
-        # Compute per-sample token usage
-        sample_usage = usage_log[usage_start:]
+        # Compute per-sample token usage. Drop side-channel records from
+        # all but the last main-channel iteration: when an agent runs N
+        # iterations each ending with a side-channel chain (e.g.
+        # extract_rule → write_python_function), the earlier iterations'
+        # side-channel tokens were repeating intermediate work and would
+        # inflate the count if summed.
+        sample_usage_raw = usage_log[usage_start:]
+        sample_usage = _filter_side_channels_to_last_iteration(sample_usage_raw)
         sample_input_tokens = sum(r.input_tokens for r in sample_usage)
         sample_output_tokens = sum(r.output_tokens for r in sample_usage)
         sample_wall_time = sum(r.wall_time_seconds for r in sample_usage)
@@ -430,13 +490,13 @@ def _build_feature_vocabulary_preamble() -> str:
     ambiguous — the grader might interpret them differently than the
     ground-truth rule encodes.
     """
-    # Dataset-sketches isn't on the main package path; add it so we can
-    # import the DSL.
+    # The bongard generator isn't on the main package path; add it so we
+    # can import the DSL.
     import sys as _sys
     from pathlib import Path as _Path
-    _sketches = str(_Path(__file__).parent / "dataset_sketches")
-    if _sketches not in _sys.path:
-        _sys.path.insert(0, _sketches)
+    _gen_dir = str(_Path(__file__).parent / "generators" / "bongard")
+    if _gen_dir not in _sys.path:
+        _sys.path.insert(0, _gen_dir)
     try:
         from bongard_dsl import FEATURE_REGISTRY  # noqa
     except Exception:
@@ -587,16 +647,30 @@ def nl_rule_scorer(grader_model: str = DEFAULT_NL_JUDGE_MODEL,
         # ──────────────────────────────────────────────────────────────
         # breakpoint()
 
+        meta = state.metadata or {}
+        nl_rule = (meta.get("nl_rule") or "").strip()
+
         if verbose:
-            meta = state.metadata or {}
-            nl = (meta.get("nl_rule") or "")[:120]
             print(
                 f"[nl_rule_scorer] sample={state.sample_id} "
-                f"candidate={nl!r} target={target.text[:120]!r}",
+                f"candidate={nl_rule[:120]!r} target={target.text[:120]!r}",
                 file=sys.stderr, flush=True,
             )
 
         result = await delegate(state, target)
+
+        # Inspect's model_graded_qa sets `Score.answer = state.output.completion`,
+        # which for Bongard is the Python function (the final side-channel
+        # output). That's misleading here — this scorer judged the NL rule,
+        # not the code. Replace `answer` with the actual NL rule so the
+        # scores JSON accurately records what was judged.
+        if nl_rule:
+            result = Score(
+                value=result.value,
+                answer=nl_rule,
+                explanation=result.explanation,
+                metadata=result.metadata,
+            )
 
         if verbose:
             verdict_preview = (str(result.explanation) or "")[:400]
@@ -798,6 +872,7 @@ def problem_eval(
     base_url: str = "",
     experiment_log_dir: str = "",
     timeout: float | None = None,
+    max_tokens: int | None = None,
 ) -> Task:
     """Evaluate the tree search agent on a problem dataset."""
     return Task(
@@ -810,6 +885,7 @@ def problem_eval(
             base_url=base_url,
             experiment_log_dir=experiment_log_dir,
             timeout=timeout,
+            max_tokens=max_tokens,
             dataset_path=dataset_path,
         ),
         scorer=problem_scorer(),
@@ -826,19 +902,33 @@ def bongard_eval(
     base_url: str = "",
     experiment_log_dir: str = "",
     timeout: float | None = None,
+    max_tokens: int | None = None,
     grader_model: str = DEFAULT_NL_JUDGE_MODEL,
+    use_nl_judge: bool = True,
 ) -> Task:
-    """Evaluate agents on Bongard-text problems with an LLM-as-judge NL scorer.
+    """Evaluate agents on Bongard-text problems.
 
     The solver's side-channel chain should end with a `write_python_function`
-    node so `state.output.completion` is the extracted Python function, and
-    include an `extract_rule` node earlier so the NL rule is available at
-    `state.metadata["nl_rule"]` for the NL-judge scorer.
+    node so `state.output.completion` is the extracted Python function.
 
-    When the python-function scorer is added later, it can be composed into
-    the Task's `scorer` list alongside `nl_rule_scorer` so both eval modes
-    run concurrently on the same sample.
+    Two scorers run by default:
+      - nl_rule_scorer     : LLM-as-judge (Opus 4.6) on the `extract_rule`
+                             side-channel NL rule against the target rule.
+      - python_rule_scorer : executes the extracted `rule(s)` function
+                             against the 6+6 shown examples and probes.
+
+    Pass `use_nl_judge=False` to skip the LLM judge and rely only on the
+    deterministic code-based scorer (cheaper, no API cost, no grader
+    misfires, but loses the NL-rule verdict).
     """
+    # `python_rule_scorer` is listed FIRST so Inspect AI's display and the
+    # top-level `correct`/`aggregate.accuracy` fields track the strict
+    # code-based verdict (all 6+6+10 items classify correctly). The NL judge,
+    # when enabled, runs concurrently as a secondary scorer.
+    scorers: list = [python_rule_scorer(strict=True)]
+    if use_nl_judge:
+        scorers.append(nl_rule_scorer(grader_model=grader_model))
+
     return Task(
         dataset=csv_dataset(dataset_path, record_to_sample, auto_id=True),
         solver=tree_search_solver(
@@ -849,14 +939,8 @@ def bongard_eval(
             base_url=base_url,
             experiment_log_dir=experiment_log_dir,
             timeout=timeout,
+            max_tokens=max_tokens,
             dataset_path=dataset_path,
         ),
-        # Two scorers run concurrently:
-        #   1. nl_rule_scorer — LLM-as-judge on the NL rule description
-        #   2. python_rule_scorer — executes extracted Python function
-        #      against the shown examples and held-out probes
-        scorer=[
-            nl_rule_scorer(grader_model=grader_model),
-            python_rule_scorer(strict=True),
-        ],
+        scorer=scorers,
     )

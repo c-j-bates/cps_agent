@@ -1,0 +1,58 @@
+{
+  "model": "deepseek-chat",
+  "baseline_strategy": "baseline",
+  "alt_strategy": "self_discover",
+  "n_problems": 1,
+  "n_epochs": 1,
+  "problem_ids": [
+    1
+  ],
+  "metrics": [
+    {
+      "total_ideas": 13,
+      "by_category": {
+        "definition": 2,
+        "indicators.words": 1,
+        "indicators.types": 3,
+        "indicators.subtypes": 2,
+        "indicators": 6,
+        "indicator_sequences": 1,
+        "answer_guesses": 3,
+        "operations": 1
+      },
+      "update_count": 13,
+      "tokens": {
+        "total_input_tokens": 2655,
+        "total_output_tokens": 1322,
+        "total_tokens": 3977
+      },
+      "strategy": "baseline",
+      "problem_id": 1,
+      "epoch": 0,
+      "md_stem": "20260318_120731_1"
+    },
+    {
+      "total_ideas": 38,
+      "by_category": {
+        "definition": 5,
+        "indicators.words": 3,
+        "indicators.types": 4,
+        "indicators.subtypes": 3,
+        "indicators": 10,
+        "indicator_sequences": 1,
+        "answer_guesses": 11,
+        "operations": 11
+      },
+      "update_count": 38,
+      "tokens": {
+        "total_input_tokens": 57934,
+        "total_output_tokens": 10011,
+        "total_tokens": 67945
+      },
+      "strategy": "self_discover",
+      "problem_id": 1,
+      "epoch": 0,
+      "md_stem": "20260318_172643_1"
+    }
+  ]
+}

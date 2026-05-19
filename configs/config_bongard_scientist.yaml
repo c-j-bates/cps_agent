@@ -19,19 +19,19 @@ graph:
     identify_pairs_and_categories:
       prompt: |
         {problem}
-        Do not solve it yet! Think like a scientist. First, identify a set of positive-negative example pairs with minimal differences. Next, consider the space of all possible ways you could describe those differences and exhaustively generate a set of high-level feature categories that systematically capture this space. You should be able to generate a family of specific features within each of these categories (but do not do this yet!)
+        INSTRUCTION: Do not solve it yet! Think like a scientist. First, identify a set of positive-negative example pairs with minimal differences. Next, consider the space of all possible ways you could describe those differences and exhaustively generate a set of high-level feature categories that systematically capture this space. You should be able to generate a family of specific features within each of these categories (but do not do this yet!)
 
     enumerate_members:
       prompt: |
-        For each category, exhaustively generate the possible members. Then stop.
+        INSTRUCTION: For each category, exhaustively generate the possible members. Then stop.
 
     generate_hypotheses:
       prompt: |
-        Exhaustively generate reasonable hypotheses based on these features given the problem instance. Be thorough and exhaustive. Follow the principle of Occam's Razor and prioritize the simpler hypotheses, all else equal. Do not select an answer yet.
+        INSTRUCTION: Exhaustively generate reasonable hypotheses based on these features given the problem instance. Be thorough and exhaustive. Follow the principle of Occam's Razor and prioritize the simpler hypotheses, all else equal. Do not select an answer yet.
 
     keep_generating:
       prompt: |
-        You haven't found the answer yet. Keep generating new hypotheses, working through each feature you haven't fully explored.
+        INSTRUCTION: You haven't found the answer yet. Keep generating new hypotheses, working through each feature you haven't fully explored.
 
   edges:
     - { from: identify_pairs_and_categories, to: enumerate_members }

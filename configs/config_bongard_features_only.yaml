@@ -18,10 +18,10 @@ graph:
     solve:
       prompt: |
         {problem}
-        Think like a scientist. First, identify a set of useful features, then use these to generate hypotheses. Follow the principle of Occam's Razor and prioritize the simpler hypotheses, all else equal. Then solve.
+        INSTRUCTION: Think like a scientist. First, identify a set of useful features, then use these to generate hypotheses. Follow the principle of Occam's Razor and prioritize the simpler hypotheses, all else equal. Then solve.
     keep_generating:
       prompt: |
-        You haven't found the answer yet. Keep generating new ideas.
+        INSTRUCTION: You haven't found the answer yet. Keep generating new ideas.
 
   edges:
     - { from: solve, to: keep_generating }

@@ -15,7 +15,7 @@ graph:
       prompt: |
         {problem}
 
-        This is a Bongard problem. Select several reasoning modules that are crucial to utilize in order to solve it from the list below:
+        INSTRUCTION: This is a Bongard problem. Select several reasoning modules that are crucial to utilize in order to solve it from the list below:
 
         1. How could I devise an experiment to help solve that problem?
         2. Make a list of ideas for solving this problem, and apply them one by one to the problem to see if any progress can be made.
@@ -60,20 +60,20 @@ graph:
         Select the modules that are most relevant. Do NOT solve the problem yet.
     adapt_modules:
       prompt: |
-        Rephrase and specify each selected reasoning module so that it better helps solving the task at hand.
+        INSTRUCTION: Rephrase and specify each selected reasoning module so that it better helps solving the task at hand.
 
         Adapt each reasoning module description to be specific to this problem.
     implement_plan:
       prompt: |
-        Operationalize the adapted reasoning modules into a step-by-step reasoning plan in JSON format.
+        INSTRUCTION: Operationalize the adapted reasoning modules into a step-by-step reasoning plan in JSON format.
 
         Implement a reasoning structure for solving this task by following the adapted modules step-by-step and arrive at the correct answer.
     solve_with_structure:
       prompt: |
-        Follow the step-by-step reasoning plan in the JSON to correctly solve the task. Fill in the values following the keys by reasoning specifically about the task given. Do not simply rephrase the keys.
+        INSTRUCTION: Follow the step-by-step reasoning plan in the JSON to correctly solve the task. Fill in the values following the keys by reasoning specifically about the task given. Do not simply rephrase the keys.
     keep_thinking:
       prompt: |
-        You haven't found the answer yet. Keep generating new ideas.
+        INSTRUCTION: You haven't found the answer yet. Keep generating new ideas.
 
   edges:
     - { from: select_modules, to: adapt_modules }

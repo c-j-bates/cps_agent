@@ -47,12 +47,17 @@ run_experiment.py      Run a single problem (debugging / development)
 run_eval.py            Run batch evaluation via Inspect AI
 run_batch_eval.sh      Run a matrix of configs x models
 analyze_results.py     Generate comparison tables and plots from eval results
-tda_analysis/          TDA pipeline for characterizing solution-space exploration
+tda_analysis_minute_cryptic/  TDA pipeline for MC cryptic-crossword experiments
+tda_analysis_rosetta/         TDA pipeline for Rosetta-Stone linguistic-puzzle experiments
 experiment_logger.py   Per-problem conversation logging (.md and .json)
 ```
 
 
 ## Running experiments
+
+### Generating Bongard dataset
+PYTHONPATH=generators/bongard python generators/bongard/bongard_generator.py \
+    --n 100 --seed 42 --max-depth 0 --output datasets/bongard_text.csv
 
 ### Single problem (development / debugging)
 
@@ -170,28 +175,40 @@ Output goes to `--output-dir` (default: `analysis_output/`). Requires `matplotli
 
 ### TDA analysis
 
-The `tda_analysis` module characterizes *how* different strategies explore the solution space, not just whether they find the answer. It codes each solver's outputs into a faceted idea representation, builds idea trees, computes topological features (via persistent homology), and compares strategies.
+The TDA modules characterize *how* different strategies explore the solution space, not just whether they find the answer. They code each solver's outputs into a faceted idea representation, build idea trees, compute topological features (via persistent homology), and compare strategies.
+
+There are two task-specific packages — pick the one that matches the experiment dataset:
+
+- `tda_analysis_minute_cryptic` — 4-facet schema (parse / mechanism / execution / output) for cryptic-crossword experiments.
+- `tda_analysis_rosetta` — 14-facet schema (lexicon, word orders, per-POS morphology, relative clause) for Rosetta-Stone-style linguistic puzzles.
 
 ```bash
 # Full pipeline: coding + TDA features + comparison
-python -m tda_analysis experiment_logs/my-experiment --output-dir tda_results/my-experiment
+python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --output-dir tda_results/my-experiment
 
 # Just code the solver traces (skip TDA)
-python -m tda_analysis experiment_logs/my-experiment --code-only
+python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --code-only
 
 # Just compute features from previously cached coded traces
-python -m tda_analysis experiment_logs/my-experiment --features-only
+python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --features-only
+
+# Same as above, but never call the LLM API even on a cache miss
+# (uncoded experiment dirs are skipped with a warning instead).
+python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --no-api
 
 # Restrict to specific strategies
-python -m tda_analysis experiment_logs/my-experiment --strategies baseline generate_vars
+python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --strategies baseline generate_vars
+
+# Rosetta variant (same flags):
+python -m tda_analysis_rosetta experiment_logs/bigbench-rosetta --no-api
 ```
 
 The pipeline has three stages:
 
-1. **Coding** (`tda_analysis/coding.py`) -- Parses experiment log markdown files and uses an LLM to code each solver turn into a structured idea tree with four facets (parse, mechanism, execution, output).
+1. **Coding** (`tda_analysis_<task>/coding.py`) -- Parses experiment log markdown files and uses an LLM to code each solver turn into a structured idea tree. The facet schema is task-specific: MC uses 4 facets (parse, mechanism, execution, output); Rosetta uses 14 (lexicon + 4 word orders + 8 per-POS morphology slots + relative clause).
 
-2. **Feature extraction** (`tda_analysis/features.py`) -- Computes 18 features per (strategy, problem) pair: TDA features from Vietoris-Rips persistent homology, tree-structural features, per-facet entropy, and distance metrics.
+2. **Feature extraction** (`tda_analysis_<task>/features.py`) -- Computes features per (strategy, problem) pair: TDA features from Vietoris-Rips persistent homology, tree-structural features, per-facet entropy (one per facet in the schema), and distance metrics.
 
-3. **Comparison** (`tda_analysis/comparison.py`) -- Aggregates features across problems, produces radar charts and summary tables comparing strategies. Also runs logistic regression (`tda_analysis/regression.py`) to identify which features predict solve success, and gold-standard analysis (`tda_analysis/gold_analysis.py`) to compare strategy coverage against known good solutions.
+3. **Comparison** (`tda_analysis_<task>/comparison.py`) -- Aggregates features across problems, produces radar charts and summary tables comparing strategies. Also runs logistic regression (`regression.py`) to identify which features predict solve success, and gold-standard analysis (`gold_analysis.py`) to compare strategy coverage against known good solutions. (Gold analysis is currently MC-only; the Rosetta variant is stubbed — see `tda_analysis_rosetta/gold_analysis.py`.)
 
 Additional dependencies for TDA: `ripser`, `persim`, `scipy` (included in `requirements.txt`).

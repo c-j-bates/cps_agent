@@ -15,13 +15,13 @@ graph:
       prompt: |
         {problem}
 
-        This is a Bongard problem. Do not solve it yet! Instead, step back and paraphrase this into a more generic, higher-level question that is easier to answer. What are the principles, concepts, or general knowledge needed to solve this kind of problem? Answer that step-back question first.
+        INSTRUCTION: This is a Bongard problem. Do not solve it yet! Instead, step back and paraphrase this into a more generic, higher-level question that is easier to answer. What are the principles, concepts, or general knowledge needed to solve this kind of problem? Answer that step-back question first.
     solve_with_principles:
       prompt: |
-        Now, using the principles and concepts you described above, solve the original Bongard problem. Ground your reasoning in those foundational ideas.
+        INSTRUCTION: Now, using the principles and concepts you described above, solve the original Bongard problem. Ground your reasoning in those foundational ideas.
     keep_thinking:
       prompt: |
-        You haven't found the answer yet. Keep generating new ideas.
+        INSTRUCTION: You haven't found the answer yet. Keep generating new ideas.
 
   edges:
     - { from: step_back, to: solve_with_principles }

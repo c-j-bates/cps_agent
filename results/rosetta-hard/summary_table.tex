@@ -6,9 +6,18 @@
 \toprule
 Strategy & Model & Accuracy & Correct & Mean Tok/Prob & LLM Calls & Avg Steps \\
 \midrule
-  generic\_baseline & claude-opus-4-6-instant & 32.0% & 16/50 & 12,278 & 150 & 1.0 \\
+  baseline & deepseek-v4-pro-instant & 2.0% & 1/50 & 4,200 & 150 & 1.0 \\
+   & deepseek-v4-pro-thinking & 38.0% & 19/50 & 36,563 & 150 & 1.0 \\
 \addlinespace
-  generic\_step\_back & claude-opus-4-6-instant & 85.1% & 40/47 & 91,263 & 367 & 3.3 \\
+  keep\_thinking\_step\_by\_step & deepseek-v4-pro-instant & 16.0% & 8/50 & 26,346 & 425 & 6.5 \\
+\addlinespace
+  step\_back & deepseek-v4-pro-instant & 18.0% & 9/50 & 29,124 & 462 & 7.2 \\
+\addlinespace
+  self\_discover & deepseek-v4-pro-instant & 20.0% & 10/50 & 45,340 & 547 & 8.9 \\
+\addlinespace
+  generate\_vars & deepseek-v4-pro-instant & 38.0% & 19/50 & 73,373 & 901 & 7.3 \\
+\addlinespace
+  generate\_vars\_strict\_chain & deepseek-v4-pro-instant & 28.0% & 14/50 & 83,440 & 976 & 7.8 \\
 \bottomrule
 \end{tabular}
 \end{table}

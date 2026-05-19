@@ -11,20 +11,20 @@ Implements the full pipeline from Section 13 of the spec:
 
 Usage:
     # Full pipeline for one experiment group (all strategies for a dataset)
-    python -m tda_analysis.run_tda experiment_logs/minute-cryptic-par1
+    python -m tda_analysis_minute_cryptic.run_tda experiment_logs/minute-cryptic-par1
 
     # Specify output directory
-    python -m tda_analysis.run_tda experiment_logs/minute-cryptic-par1 \\
+    python -m tda_analysis_minute_cryptic.run_tda experiment_logs/minute-cryptic-par1 \\
         --output-dir tda_results/minute-cryptic-par1
 
     # Code only (skip TDA and comparison — useful for incremental work)
-    python -m tda_analysis.run_tda experiment_logs/minute-cryptic-par1 --code-only
+    python -m tda_analysis_minute_cryptic.run_tda experiment_logs/minute-cryptic-par1 --code-only
 
     # Features only (skip coding, use cached traces)
-    python -m tda_analysis.run_tda experiment_logs/minute-cryptic-par1 --features-only
+    python -m tda_analysis_minute_cryptic.run_tda experiment_logs/minute-cryptic-par1 --features-only
 
     # Specific strategies
-    python -m tda_analysis.run_tda experiment_logs/minute-cryptic-par1 \\
+    python -m tda_analysis_minute_cryptic.run_tda experiment_logs/minute-cryptic-par1 \\
         --strategies baseline keep_thinking_step_by_step self_discover
 """
 
@@ -171,6 +171,7 @@ def run_pipeline(experiment_group_dir: str,
                  code_only: bool = False,
                  features_only: bool = False,
                  no_viz: bool = False,
+                 no_api: bool = False,
                  model: str = "claude-opus-4-6",
                  provider: str = "claude",
                  thinking: bool | str = False):
@@ -182,6 +183,10 @@ def run_pipeline(experiment_group_dir: str,
         max_problems: If set, only process the first N problems per
                       experiment directory.
         no_viz: If True, skip visualization generation.
+        no_api: If True, refuse to make any LLM API calls. Coding and
+                novel-type review fall back to cached results; missing
+                caches are skipped with a warning instead of triggering
+                an API call. Implies ``features_only`` for the coding step.
     """
     experiment_group_dir = os.path.abspath(experiment_group_dir)
     group_name = Path(experiment_group_dir).name
@@ -220,7 +225,7 @@ def run_pipeline(experiment_group_dir: str,
         for exp_dir in exp_dirs:
             exp_name = Path(exp_dir).name
 
-            if features_only:
+            if features_only or no_api:
                 results = load_cached_results(coding_output_dir, exp_name,
                                              max_problems=max_problems)
                 # Fallback: try old layout (no coded-by-* prefix)
@@ -230,6 +235,10 @@ def run_pipeline(experiment_group_dir: str,
                 if results:
                     print(f"  Loaded {len(results)} cached results for {exp_name}")
                     all_coded[strategy][exp_name] = results
+                    continue
+                if no_api:
+                    print(f"  [no-api] No cached results for {exp_name}; "
+                          f"skipping (would have required LLM coding)")
                     continue
 
             results = code_experiment(exp_dir, coding_output_dir, client=client,
@@ -262,6 +271,11 @@ def run_pipeline(experiment_group_dir: str,
         if os.path.isfile(decisions_path):
             decisions = json.loads(Path(decisions_path).read_text())
             print(f"  Using cached decisions: {decisions_path}")
+        elif no_api:
+            print(f"  [no-api] No cached novel-type decisions at "
+                  f"{decisions_path}; skipping review (all novel types "
+                  f"treated as rejected)")
+            decisions = []
         else:
             if client is None:
                 from llm_clients import create_client
@@ -422,16 +436,16 @@ def main():
         epilog="""
 Examples:
   # Full pipeline
-  python -m tda_analysis experiment_logs/minute-cryptic-par1
+  python -m tda_analysis_minute_cryptic experiment_logs/minute-cryptic-par1
 
   # Only code (no TDA/comparison)
-  python -m tda_analysis experiment_logs/minute-cryptic-par1 --code-only
+  python -m tda_analysis_minute_cryptic experiment_logs/minute-cryptic-par1 --code-only
 
   # Use cached traces, just compute features
-  python -m tda_analysis experiment_logs/minute-cryptic-par1 --features-only
+  python -m tda_analysis_minute_cryptic experiment_logs/minute-cryptic-par1 --features-only
 
   # Filter by strategy and solver model, first 5 puzzles only
-  python -m tda_analysis experiment_logs/minute-cryptic-par1 \\
+  python -m tda_analysis_minute_cryptic experiment_logs/minute-cryptic-par1 \\
       --strategies baseline self_discover \\
       --models claude-opus-4-6-instant \\
       --max-problems 5
@@ -454,6 +468,11 @@ Examples:
                         help="Only run coding (Prompts A+B), skip TDA and comparison")
     parser.add_argument("--features-only", action="store_true",
                         help="Skip coding (use cached traces), run TDA and comparison")
+    parser.add_argument("--no-api", action="store_true",
+                        help="Refuse to make any LLM API calls. Uses cached "
+                             "coding and novel-type decisions only; experiment "
+                             "dirs with no cache are skipped with a warning. "
+                             "Implies --features-only for the coding step.")
     parser.add_argument("--coder-model", default="claude-opus-4-6",
                         help="LLM model used for coding/analysis calls "
                              "(default: claude-opus-4-6)")
@@ -485,6 +504,7 @@ Examples:
         code_only=args.code_only,
         features_only=args.features_only,
         no_viz=args.no_viz,
+        no_api=args.no_api,
         model=args.coder_model,
         provider=args.coder_provider,
         thinking=thinking_val,

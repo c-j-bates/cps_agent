@@ -18,10 +18,24 @@ graph:
     solve:
       prompt: |
         {problem}
-        Think like a scientist. First, identify a set of positive-negative example pairs with minimal differences. Use these to generate hypotheses. Follow the principle of Occam's Razor and prioritize the simpler hypotheses, all else equal. Then solve.
+        INSTRUCTION: Think like a scientist:
+        1. First, identify a set of positive-negative example pairs with minimal differences. Use these to generate hypotheses. 
+        2. Follow the principle of Occam's Razor and prioritize the simpler hypotheses, all else equal.
+
+        For the hypothesis generation phase, follow this template:
+
+        Hypothesis XX: <some hypothesis>
+        Test: <test hypothesis against data>
+        Outcome: <reject | accept>
+        Notes: <None | misc. thoughts>
     keep_generating:
       prompt: |
-        You haven't found the answer yet. Keep generating new ideas.
+        INSTRUCTION: You haven't found the answer yet. Keep generating new hypotheses. Remember: For each hypothesis, follow this format:
+
+        Hypothesis XX: <some hypothesis>
+        Test: <test hypothesis against data>
+        Outcome: <reject | accept>
+        Notes: <None | misc. thoughts>
 
   edges:
     - { from: solve, to: keep_generating }
