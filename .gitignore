@@ -29,6 +29,13 @@ experiment_logs_backup/
 # Computed TDA outputs (regeneratable from experiment_logs/)
 tda_results/
 
+# Result plots / tables (regeneratable from eval_results/)
+results/
+
+# Personal stash dirs (local clutter — not part of the project)
+archive/
+configs/archive/
+
 # Claude Code worktrees (embedded git repos — not part of project)
 .claude/
 
