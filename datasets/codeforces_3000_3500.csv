@@ -1,0 +1,3512 @@
+id,problem,solution
+1152/F2,"# Neko Rules the Catniverse (Large Version)
+
+## Statement
+This problem is same as the previous one, but has larger constraints.
+
+Aki is playing a new video game. In the video game, he will control Neko, the giant cat, to fly between planets in the Catniverse.
+
+There are $$$n$$$ planets in the Catniverse, numbered from $$$1$$$ to $$$n$$$. At the beginning of the game, Aki chooses the planet where Neko is initially located. Then Aki performs $$$k - 1$$$ moves, where in each move Neko is moved from the current planet $$$x$$$ to some other planet $$$y$$$ such that:
+
+- Planet $$$y$$$ is not visited yet.
+- $$$1 \leq y \leq x + m$$$ (where $$$m$$$ is a fixed constant given in the input)
+
+This way, Neko will visit exactly $$$k$$$ different planets. Two ways of visiting planets are called different if there is some index $$$i$$$ such that, the $$$i$$$-th planet visited in the first way is different from the $$$i$$$-th planet visited in the second way.
+
+What is the total number of ways to visit $$$k$$$ planets this way? Since the answer can be quite large, print it modulo $$$10^9 + 7$$$.
+
+## Input
+The only line contains three integers $$$n$$$, $$$k$$$ and $$$m$$$ ($$$1 \le n \le 10^9$$$, $$$1 \le k \le \min(n, 12)$$$, $$$1 \le m \le 4$$$) — the number of planets in the Catniverse, the number of planets Neko needs to visit and the said constant $$$m$$$.
+
+## Output
+Print exactly one integer — the number of different ways Neko can visit exactly $$$k$$$ planets. Since the answer can be quite large, print it modulo $$$10^9 + 7$$$.
+
+## Note
+In the first example, there are $$$4$$$ ways Neko can visit all the planets:
+
+- $$$1 \rightarrow 2 \rightarrow 3$$$
+- $$$2 \rightarrow 3 \rightarrow 1$$$
+- $$$3 \rightarrow 1 \rightarrow 2$$$
+- $$$3 \rightarrow 2 \rightarrow 1$$$
+
+In the second example, there are $$$9$$$ ways Neko can visit exactly $$$2$$$ planets:
+
+- $$$1 \rightarrow 2$$$
+- $$$2 \rightarrow 1$$$
+- $$$2 \rightarrow 3$$$
+- $$$3 \rightarrow 1$$$
+- $$$3 \rightarrow 2$$$
+- $$$3 \rightarrow 4$$$
+- $$$4 \rightarrow 1$$$
+- $$$4 \rightarrow 2$$$
+- $$$4 \rightarrow 3$$$
+
+In the third example, with $$$m = 4$$$, Neko can visit all the planets in any order, so there are $$$5! = 120$$$ ways Neko can visit all the planets.
+
+In the fourth example, Neko only visit exactly $$$1$$$ planet (which is also the planet he initially located), and there are $$$100$$$ ways to choose the starting planet for Neko.
+
+## Examples
+### Example 1
+Input:
+```
+3 3 1
+```
+Output:
+```
+4
+```
+
+### Example 2
+Input:
+```
+4 2 1
+```
+Output:
+```
+9
+```
+
+### Example 3
+Input:
+```
+5 5 4
+```
+Output:
+```
+120
+```
+
+### Example 4
+Input:
+```
+100 1 2
+```
+Output:
+```
+100
+```
+","{""tests_file"": ""datasets/codeforces_tests/1152F2.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1152F2.json"", ""time_limit"": 7.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1028/G,"# Guess the number
+
+## Statement
+This problem is interactive.
+
+You should guess hidden number $$$x$$$ which is between $$$1$$$ and $$$M = 10004205361450474$$$, inclusive.
+
+You could use up to $$$5$$$ queries.
+
+In each query, you can output an increasing sequence of $$$k \leq x$$$ integers, each between $$$1$$$ and $$$M$$$, inclusive, and you will obtain one of the following as an answer:
+
+- either the hidden number belongs to your query sequence, in this case you immediately win;
+- or you will be given where the hidden number is located with respect to your query sequence, that is, either it is less than all numbers from the sequence, greater than all numbers from the sequence, or you will be given such an $$$i$$$ that the hidden number $$$x$$$ is between the $$$i$$$-th and the $$$(i+1)$$$-st numbers of your sequence.
+
+See the interaction section for clarity.
+
+Be aware that the interactor is adaptive, i.e. the hidden number can depend on queries the solution makes. However, it is guaranteed that for any solution the interactor works non-distinguishable from the situation when the hidden number is fixed beforehand.
+
+Hacks are allowed only with fixed hidden number. A hack is represented by a single integer between $$$1$$$ and $$$M$$$. In all pretests the hidden number is fixed as well.
+
+## Input
+nan
+
+## Output
+nan
+
+## Note
+In the first example the number $$$5$$$ is hidden.
+
+## Examples
+### Example 1
+Input:
+```
+2
+0
+-1
+```
+Output:
+```
+2 2 3
+2 20 30
+3 5 7 9
+```
+","{""tests_file"": ""datasets/codeforces_tests/1028G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1028G.json"", ""time_limit"": 2.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+2045/L,"# Buggy DFS
+
+## Statement
+You are currently studying a graph traversal algorithm called the Depth First Search (DFS). However, due to a bug, your algorithm is slightly different from the standard DFS. The following is an algorithm for your Buggy DFS (BDFS), assuming the graph has $$$N$$$ nodes (numbered from $$$1$$$ to $$$N$$$).
+
+You realized that the bug made the algorithm slower than standard DFS, which can be investigated by the return value of the function BDFS(). To investigate the behavior of this algorithm, you want to make some test cases by constructing an undirected simple graph such that the function BDFS() returns $$$K$$$, or determine if it is impossible to do so.
+
+## Input
+A single line consisting of an integer $$$K$$$ ($$$1 \leq K \leq 10^9$$$).
+
+## Output
+If it is impossible to construct an undirected simple graph such that the function BDFS() returns $$$K$$$, then output -1 -1 in a single line.
+
+Otherwise, output the graph in the following format. The first line consists of two integers $$$N$$$ and $$$M$$$, representing the number of nodes and undirected edges in the graph, respectively. Each of the next $$$M$$$ lines consists of two integers $$$u$$$ and $$$v$$$, representing an undirected edge that connects node $$$u$$$ and node $$$v$$$. You are allowed to output the edges in any order. This graph has to satisfy the following constraints:
+
+- $$$1 \leq N \leq 32\,768$$$
+- $$$1 \leq M \leq 65\,536$$$
+- $$$1 \leq u, v \leq N$$$, for all edges.
+- The graph is a simple graph, i.e. there are no multi-edges nor self-loops.
+
+Note that you are not required to minimize the number of nodes or edges. It can be proven that if constructing a graph in which the return value of BDFS() is $$$K$$$ is possible, then there exists one that satisfies all the constraints above. If there are several solutions, you can output any of them.
+
+## Note
+Explanation for the sample input/output #1
+
+The graph on the left describes the output of this sample. The graph on the right describes another valid solution for this sample.
+
+Explanation for the sample input/output #3
+
+The following graph describes the output of this sample.
+
+## Examples
+### Example 1
+Input:
+```
+8
+```
+Output:
+```
+3 3
+1 2
+1 3
+2 3
+```
+
+### Example 2
+Input:
+```
+1
+```
+Output:
+```
+-1 -1
+```
+
+### Example 3
+Input:
+```
+23
+```
+Output:
+```
+5 7
+4 5
+2 3
+3 1
+2 4
+4 3
+2 1
+1 5
+```
+","{""tests_file"": ""datasets/codeforces_tests/2045L.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2045L.json"", ""time_limit"": 1.0, ""memory_limit"": 1024.0, ""input_mode"": ""stdio""}"
+1063/E,"# Lasers and Mirrors
+
+## Statement
+Oleg came to see the maze of mirrors. The maze is a $$$n$$$ by $$$n$$$ room in which each cell is either empty or contains a mirror connecting opposite corners of this cell. Mirrors in this maze reflect light in a perfect way, which causes the interesting visual effects and contributes to the loss of orientation in the maze.
+
+Oleg is a person of curious nature, so he decided to install $$$n$$$ lasers facing internal of the maze on the south wall of the maze. On the north wall of the maze, Oleg installed $$$n$$$ receivers, also facing internal of the maze. Let's number lasers and receivers from west to east with distinct integers from $$$1$$$ to $$$n$$$. Each laser sends a beam of some specific kind and receiver with number $$$a_i$$$ should receive the beam sent from laser number $$$i$$$. Since two lasers' beams can't come to the same receiver, these numbers form a permutation — each of the receiver numbers occurs exactly once.
+
+You came to the maze together with Oleg. Help him to place the mirrors in the initially empty maze so that the maximum number of lasers' beams will come to the receivers they should. There are no mirrors outside the maze, so if the laser beam leaves the maze, it will not be able to go back.
+
+## Input
+The first line contains a single integer $$$n$$$ ($$$1 \le n \le 1000$$$) — the size of the maze.
+
+The second line contains a permutation of $$$n$$$ integers $$$a_i$$$ ($$$1 \le a_i \le n$$$), where $$$a_i$$$ defines the number of the receiver, to which the beam from $$$i$$$-th laser should come.
+
+## Output
+In the first line print the maximum possible number of laser beams, which can come to the receivers they should.
+
+In the next $$$n$$$ lines of length $$$n$$$ print the arrangement of mirrors, causing such number of laser beams to come where they should. If the corresponding cell is empty, print ""."", otherwise print ""/"" or ""\"", depending on the orientation of the mirror.
+
+In your output north should be above, south should be below, and west and east should be on left and on the right respectively.
+
+It is allowed for laser beams to come not to the receivers they correspond to, but they are not counted in the answer.
+
+If there are multiple arrangements of mirrors leading to the optimal answer — print any of them.
+
+## Note
+The picture illustrates the arrangements of the mirrors in the first example.
+
+## Examples
+### Example 1
+Input:
+```
+4
+4 1 3 2
+```
+Output:
+```
+3
+.\..
+\\..
+/../
+...\
+```
+","{""tests_file"": ""datasets/codeforces_tests/1063E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1063E.json"", ""time_limit"": 1.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1149/D,"# Abandoning Roads
+
+## Statement
+Codefortia is a small island country located somewhere in the West Pacific. It consists of $$$n$$$ settlements connected by $$$m$$$ bidirectional gravel roads. Curiously enough, the beliefs of the inhabitants require the time needed to pass each road to be equal either to $$$a$$$ or $$$b$$$ seconds. It's guaranteed that one can go between any pair of settlements by following a sequence of roads.
+
+Codefortia was recently struck by the financial crisis. Therefore, the king decided to abandon some of the roads so that:
+
+- it will be possible to travel between each pair of cities using the remaining roads only,
+- the sum of times required to pass each remaining road will be minimum possible (in other words, remaining roads must form minimum spanning tree, using the time to pass the road as its weight),
+- among all the plans minimizing the sum of times above, the time required to travel between the king's residence (in settlement $$$1$$$) and the parliament house (in settlement $$$p$$$) using the remaining roads only will be minimum possible.
+
+The king, however, forgot where the parliament house was. For each settlement $$$p = 1, 2, \dots, n$$$, can you tell what is the minimum time required to travel between the king's residence and the parliament house (located in settlement $$$p$$$) after some roads are abandoned?
+
+## Input
+The first line of the input contains four integers $$$n$$$, $$$m$$$, $$$a$$$ and $$$b$$$ ($$$2 \leq n \leq 70$$$, $$$n - 1 \leq m \leq 200$$$, $$$1 \leq a < b \leq 10^7$$$) — the number of settlements and gravel roads in Codefortia, and two possible travel times. Each of the following lines contains three integers $$$u, v, c$$$ ($$$1 \leq u, v \leq n$$$, $$$u \neq v$$$, $$$c \in \{a, b\}$$$) denoting a single gravel road between the settlements $$$u$$$ and $$$v$$$, which requires $$$c$$$ minutes to travel.
+
+You can assume that the road network is connected and has no loops or multiedges.
+
+## Output
+Output a single line containing $$$n$$$ integers. The $$$p$$$-th of them should denote the minimum possible time required to travel from $$$1$$$ to $$$p$$$ after the selected roads are abandoned. Note that for each $$$p$$$ you can abandon a different set of roads.
+
+## Note
+The minimum possible sum of times required to pass each road in the first example is $$$85$$$ — exactly one of the roads with passing time $$$25$$$ must be abandoned. Note that after one of these roads is abandoned, it's now impossible to travel between settlements $$$1$$$ and $$$3$$$ in time $$$50$$$.
+
+## Examples
+### Example 1
+Input:
+```
+5 5 20 25
+1 2 25
+2 3 25
+3 4 20
+4 5 20
+5 1 20
+```
+Output:
+```
+0 25 60 40 20
+```
+
+### Example 2
+Input:
+```
+6 7 13 22
+1 2 13
+2 3 13
+1 4 22
+3 4 13
+4 5 13
+5 6 13
+6 1 13
+```
+Output:
+```
+0 13 26 39 26 13
+```
+","{""tests_file"": ""datasets/codeforces_tests/1149D.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1149D.json"", ""time_limit"": 5.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+1007/C,"# Guess two numbers
+
+## Statement
+This is an interactive problem.
+
+Vasya and Vitya play a game. Vasya thought of two integers $$$a$$$ and $$$b$$$ from $$$1$$$ to $$$n$$$ and Vitya tries to guess them. Each round he tells Vasya two numbers $$$x$$$ and $$$y$$$ from $$$1$$$ to $$$n$$$. If both $$$x=a$$$ and $$$y=b$$$ then Vitya wins. Else Vasya must say one of the three phrases:
+
+1. $$$x$$$ is less than $$$a$$$;
+2. $$$y$$$ is less than $$$b$$$;
+3. $$$x$$$ is greater than $$$a$$$ or $$$y$$$ is greater than $$$b$$$.
+
+Vasya can't lie, but if multiple phrases are true, he may choose any of them. For example, if Vasya thought of numbers $$$2$$$ and $$$4$$$, then he answers with the phrase $$$3$$$ to a query $$$(3, 4)$$$, and he can answer with the phrase $$$1$$$ or phrase $$$3$$$ to a query $$$(1, 5)$$$.
+
+Help Vitya win in no more than $$$600$$$ rounds.
+
+## Input
+The first line contains a single integer $$$n$$$ ($$$1 \leq n \leq 10^{18}$$$) — the upper limit of the numbers.
+
+## Output
+nan
+
+## Note
+Let's analyze the sample test. The chosen numbers are $$$2$$$ and $$$4$$$. The interactor was given two instructions.
+
+For the query $$$(4, 3)$$$, it can return $$$2$$$ or $$$3$$$. Out of the two instructions the second one is chosen, so the interactor returns $$$a^{23}_2=3$$$.
+
+For the query $$$(3, 4)$$$, it can return only $$$3$$$.
+
+For the query $$$(3, 3)$$$, it can return $$$2$$$ or $$$3$$$. Out of the two instructions the first one is chosen (since in case of equal values, the least number is preferred), so the interactor returns $$$a^{23}_1=2$$$.
+
+For the query $$$(1, 5)$$$, it can return $$$1$$$ or $$$3$$$. Out of the two instructions the first one is chosen, so the interactor returns $$$a^{13}_1=1$$$.
+
+In the fifth query $$$(2, 4)$$$, the numbers are guessed correctly, the player wins.
+
+## Examples
+### Example 1
+Input:
+```
+5
+3
+3
+2
+1
+0
+```
+Output:
+```
+4 3
+3 4
+3 3
+1 5
+2 4
+```
+","{""tests_file"": ""datasets/codeforces_tests/1007C.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1007C.json"", ""time_limit"": 2.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1175/G,"# Yet Another Partiton Problem
+
+## Statement
+You are given array $$$a_1, a_2, \dots, a_n$$$. You need to split it into $$$k$$$ subsegments (so every element is included in exactly one subsegment).
+
+The weight of a subsegment $$$a_l, a_{l+1}, \dots, a_r$$$ is equal to $$$(r - l + 1) \cdot \max\limits_{l \le i \le r}(a_i)$$$. The weight of a partition is a total weight of all its segments.
+
+Find the partition of minimal weight.
+
+## Input
+The first line contains two integers $$$n$$$ and $$$k$$$ ($$$1 \le n \le 2 \cdot 10^4$$$, $$$1 \le k \le \min(100, n)$$$) — the length of the array $$$a$$$ and the number of subsegments in the partition.
+
+The second line contains $$$n$$$ integers $$$a_1, a_2, \dots, a_n$$$ ($$$1 \le a_i \le 2 \cdot 10^4$$$) — the array $$$a$$$.
+
+## Output
+Print single integer — the minimal weight among all possible partitions.
+
+## Note
+The optimal partition in the first example is next: $$$6$$$ $$$1$$$ $$$7$$$ $$$\bigg|$$$ $$$4$$$.
+
+The optimal partition in the second example is next: $$$6$$$ $$$\bigg|$$$ $$$1$$$ $$$\bigg|$$$ $$$7$$$ $$$4$$$.
+
+One of the optimal partitions in the third example is next: $$$5$$$ $$$\bigg|$$$ $$$1$$$ $$$5$$$ $$$\bigg|$$$ $$$1$$$ $$$\bigg|$$$ $$$5$$$.
+
+## Examples
+### Example 1
+Input:
+```
+4 2
+6 1 7 4
+```
+Output:
+```
+25
+```
+
+### Example 2
+Input:
+```
+4 3
+6 1 7 4
+```
+Output:
+```
+21
+```
+
+### Example 3
+Input:
+```
+5 4
+5 1 5 1 5
+```
+Output:
+```
+21
+```
+","{""tests_file"": ""datasets/codeforces_tests/1175G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1175G.json"", ""time_limit"": 5.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+2018/F2,"# Speedbreaker Counting (Medium Version)
+
+## Statement
+This is the medium version of the problem. In the three versions, the constraints on $$$n$$$ and the time limit are different. You can make hacks only if all the versions of the problem are solved.
+
+This is the statement of Problem D1B:
+
+- There are $$$n$$$ cities in a row, numbered $$$1, 2, \ldots, n$$$ left to right.  At time $$$1$$$, you conquer exactly one city, called the starting city.  At time $$$2, 3, \ldots, n$$$, you can choose a city adjacent to the ones conquered so far and conquer it. You win if, for each $$$i$$$, you conquer city $$$i$$$ at a time no later than $$$a_i$$$. A winning strategy may or may not exist, also depending on the starting city. How many starting cities allow you to win?
+
+For each $$$0 \leq k \leq n$$$, count the number of arrays of positive integers $$$a_1, a_2, \ldots, a_n$$$ such that
+
+- $$$1 \leq a_i \leq n$$$ for each $$$1 \leq i \leq n$$$;
+- the answer to Problem D1B is $$$k$$$.
+
+The answer can be very large, so you have to calculate it modulo a given prime $$$p$$$.
+
+## Input
+Each test contains multiple test cases. The first line contains the number of test cases $$$t$$$ ($$$1 \le t \le 500$$$). The description of the test cases follows.
+
+The only line of each test case contains two integers $$$n$$$, $$$p$$$ ($$$1 \le n \le 500$$$, $$$10^8 \leq p \leq 10^9$$$, $$$p$$$ is prime) — the number of cities and the modulo.
+
+It is guaranteed that the sum of $$$n$$$ over all test cases does not exceed $$$500$$$.
+
+## Output
+For each test case, output $$$n+1$$$ integers: the $$$i$$$-th integer should be the number of arrays that satisfy the conditions for $$$k = i-1$$$.
+
+## Note
+In the first test case,
+
+- arrays with $$$1$$$ good starting city: $$$[1]$$$.
+
+In the second test case,
+
+- arrays with $$$0$$$ good starting cities: $$$[1, 1]$$$;
+- arrays with $$$1$$$ good starting city: $$$[1, 2]$$$, $$$[2, 1]$$$;
+- arrays with $$$2$$$ good starting cities: $$$[2, 2]$$$.
+
+In the third test case,
+
+- arrays with $$$0$$$ good starting cities: $$$[1, 1, 1]$$$, $$$[1, 1, 2]$$$, $$$[1, 1, 3]$$$, $$$[1, 2, 1]$$$, $$$[1, 2, 2]$$$, $$$[1, 3, 1]$$$, $$$[1, 3, 2]$$$, $$$[2, 1, 1]$$$, $$$[2, 1, 2]$$$, $$$[2, 2, 1]$$$, $$$[2, 2, 2]$$$, $$$[2, 3, 1]$$$, $$$[2, 3, 2]$$$, $$$[3, 1, 1]$$$;
+- arrays with $$$1$$$ good starting city: $$$[1, 2, 3]$$$, $$$[1, 3, 3]$$$, $$$[2, 1, 3]$$$, $$$[3, 1, 2]$$$, $$$[3, 1, 3]$$$, $$$[3, 2, 1]$$$, $$$[3, 3, 1]$$$;
+- arrays with $$$2$$$ good starting cities: $$$[2, 2, 3]$$$, $$$[2, 3, 3]$$$, $$$[3, 2, 2]$$$, $$$[3, 3, 2]$$$;
+- arrays with $$$3$$$ good starting cities: $$$[3, 2, 3]$$$, $$$[3, 3, 3]$$$.
+
+## Examples
+### Example 1
+Input:
+```
+11
+1 998244353
+2 998244353
+3 998244353
+4 998244353
+5 998244353
+6 998244353
+7 998244353
+8 998244353
+9 998244353
+10 102275857
+10 999662017
+```
+Output:
+```
+0 1 
+1 2 1 
+14 7 4 2 
+183 34 19 16 4 
+2624 209 112 120 48 12 
+42605 1546 793 992 468 216 36 
+785910 13327 6556 9190 4672 2880 864 144 
+16382863 130922 61939 94992 50100 36960 14256 4608 576 
+382823936 1441729 657784 1086596 583344 488700 216000 96480 23040 2880 
+20300780 17572114 7751377 13641280 7376068 6810552 3269700 1785600 576000 144000 14400 
+944100756 17572114 7751377 13641280 7376068 6810552 3269700 1785600 576000 144000 14400
+```
+","{""tests_file"": ""datasets/codeforces_tests/2018F2.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2018F2.json"", ""time_limit"": 10.0, ""memory_limit"": 1024.0, ""input_mode"": ""stdio""}"
+1129/E,"# Legendary Tree
+
+## Statement
+This is an interactive problem.
+
+A legendary tree rests deep in the forest. Legend has it that individuals who realize this tree would eternally become a Legendary Grandmaster.
+
+To help you determine the tree, Mikaela the Goddess has revealed to you that the tree contains $$$n$$$ vertices, enumerated from $$$1$$$ through $$$n$$$. She also allows you to ask her some questions as follows. For each question, you should tell Mikaela some two disjoint non-empty sets of vertices $$$S$$$ and $$$T$$$, along with any vertex $$$v$$$ that you like. Then, Mikaela will count and give you the number of pairs of vertices $$$(s, t)$$$ where $$$s \in S$$$ and $$$t \in T$$$ such that the simple path from $$$s$$$ to $$$t$$$ contains $$$v$$$.
+
+Mikaela the Goddess is busy and will be available to answer at most $$$11\,111$$$ questions.
+
+This is your only chance. Your task is to determine the tree and report its edges.
+
+## Input
+The first line contains an integer $$$n$$$ ($$$2 \leq n \leq 500$$$) — the number of vertices in the tree.
+
+## Output
+When program has realized the tree and is ready to report the edges, print ""ANSWER"" in a separate line. Make sure that all letters are capitalized.
+
+Then, print $$$n-1$$$ lines, each containing two space-separated integers, denoting the vertices that are the endpoints of a certain edge. Each edge should be reported exactly once. Your program should then immediately terminate.
+
+## Note
+In the sample, the tree is as follows.
+
+$$$n = 5$$$ is given to the program. The program then asks Mikaela a question where $$$S = \{1, 2, 3\}$$$, $$$T = \{4, 5\}$$$, and $$$v = 2$$$, to which she replies with $$$5$$$ (the pairs $$$(s, t)$$$ are $$$(1, 4)$$$, $$$(1, 5)$$$, $$$(2, 4)$$$, $$$(2, 5)$$$, and $$$(3, 5)$$$).
+
+## Examples
+### Example 1
+Input:
+```
+5
+5
+```
+Output:
+```
+3
+1 2 3
+2
+4 5
+2
+ANSWER
+1 2
+2 3
+3 4
+2 5
+```
+","{""tests_file"": ""datasets/codeforces_tests/1129E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1129E.json"", ""time_limit"": 3.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1190/E,"# Tokitsukaze and Explosion
+
+## Statement
+Tokitsukaze and her friends are trying to infiltrate a secret base built by Claris. However, Claris has been aware of that and set a bomb which is going to explode in a minute. Although they try to escape, they have no place to go after they find that the door has been locked.
+
+At this very moment, CJB, Father of Tokitsukaze comes. With his magical power given by Ereshkigal, the goddess of the underworld, CJB is able to set $$$m$$$ barriers to protect them from the explosion. Formally, let's build a Cartesian coordinate system on the plane and assume the bomb is at $$$O(0, 0)$$$. There are $$$n$$$ persons in Tokitsukaze's crew, the $$$i$$$-th one of whom is at $$$P_i(X_i, Y_i)$$$. Every barrier can be considered as a line with infinity length and they can intersect each other. For every person from Tokitsukaze's crew, there must be at least one barrier separating the bomb and him, which means the line between the bomb and him intersects with at least one barrier. In this definition, if there exists a person standing at the position of the bomb, any line through $$$O(0, 0)$$$ will satisfy the requirement.
+
+Although CJB is very powerful, he still wants his barriers to be as far from the bomb as possible, in order to conserve his energy. Please help him calculate the maximum distance between the bomb and the closest barrier while all of Tokitsukaze's crew are safe.
+
+## Input
+The first line contains two integers $$$n$$$, $$$m$$$ ($$$1 \leq n, m \leq 10^5$$$), indicating the number of people and the number of barriers respectively.
+
+The $$$i$$$-th line of the next $$$n$$$ lines contains two integers $$$X_i$$$, $$$Y_i$$$ ($$$-10^5 \leq X_i, Y_i \leq 10^5$$$), indicating the $$$i$$$-th person's location $$$P_i(X_i, Y_i)$$$. Note that $$$P_i$$$ may have the same coordinates as $$$P_j$$$ ($$$j \neq i$$$) or even $$$O$$$.
+
+## Output
+Print a single real number — the maximum distance meeting the requirement. Your answer is considered correct if its absolute or relative error does not exceed $$$10^{-6}$$$.
+
+Formally, let your answer be $$$a$$$, and the jury's answer be $$$b$$$. Your answer is accepted if and only if $$$\frac{|a - b|}{\max(1, |b|)} \leq 10^{-6}$$$.
+
+## Note
+In the first two examples, CJB must set the barrier crossing $$$O(0, 0)$$$.
+
+In the last two examples, CJB can set each barrier crossing some $$$P_i$$$ such that the barrier is perpendicular to the line between $$$P_i$$$ and $$$O$$$.
+
+## Examples
+### Example 1
+Input:
+```
+3 1
+2 0
+0 2
+-1 0
+```
+Output:
+```
+0.0000000000
+```
+
+### Example 2
+Input:
+```
+1 1
+0 0
+```
+Output:
+```
+0.0000000000
+```
+
+### Example 3
+Input:
+```
+2 1
+-1 -1
+-1 -1
+```
+Output:
+```
+1.4142135617
+```
+
+### Example 4
+Input:
+```
+3 100000
+3 2
+-1 -3
+2 -5
+```
+Output:
+```
+3.1622776602
+```
+","{""tests_file"": ""datasets/codeforces_tests/1190E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1190E.json"", ""time_limit"": 6.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1205/E,"# Expected Value Again
+
+## Statement
+You are given integers $$$n$$$, $$$k$$$. Let's consider the alphabet consisting of $$$k$$$ different elements.
+
+Let beauty $$$f(s)$$$ of the string $$$s$$$ be the number of indexes $$$i$$$, $$$1\le i<|s|$$$, for which prefix of $$$s$$$ of length $$$i$$$ equals to suffix of $$$s$$$ of length $$$i$$$. For example, beauty of the string $$$abacaba$$$ equals $$$2$$$, as for $$$i = 1, 3$$$ prefix and suffix of length $$$i$$$ are equal.
+
+Consider all words of length $$$n$$$ in the given alphabet. Find the expected value of $$$f(s)^2$$$ of a uniformly chosen at random word. We can show that it can be expressed as $$$\frac{P}{Q}$$$, where $$$P$$$ and $$$Q$$$ are coprime and $$$Q$$$ isn't divided by $$$10^9 + 7$$$. Output $$$P\cdot Q^{-1} \bmod 10^9 + 7$$$.
+
+## Input
+The first and the only line contains two integers $$$n$$$, $$$k$$$ ($$$1\le n \le 10^5$$$, $$$1\le k\le 10^9$$$) — the length of a string and the size of alphabet respectively.
+
+## Output
+Output a single integer — $$$P\times Q^{-1} \bmod 10^9 + 7$$$.
+
+## Note
+In the first example, there are $$$9$$$ words of length $$$2$$$ in alphabet of size $$$3$$$ — $$$aa$$$, $$$ab$$$, $$$ac$$$, $$$ba$$$, $$$bb$$$, $$$bc$$$, $$$ca$$$, $$$cb$$$, $$$cc$$$. $$$3$$$ of them have beauty $$$1$$$ and $$$6$$$ of them have beauty $$$0$$$, so the average value is $$$\frac{1}{3}$$$.
+
+In the third example, there is only one such word, and it has beauty $$$99$$$, so the average value is $$$99^2$$$.
+
+## Examples
+### Example 1
+Input:
+```
+2 3
+```
+Output:
+```
+333333336
+```
+
+### Example 2
+Input:
+```
+1 5
+```
+Output:
+```
+0
+```
+
+### Example 3
+Input:
+```
+100 1
+```
+Output:
+```
+9801
+```
+
+### Example 4
+Input:
+```
+10 10
+```
+Output:
+```
+412377396
+```
+","{""tests_file"": ""datasets/codeforces_tests/1205E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1205E.json"", ""time_limit"": 4.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1044/E,"# Grid Sort
+
+## Statement
+You are given an $$$n \times m$$$ grid. Each grid cell is filled with a unique integer from $$$1$$$ to $$$nm$$$ so that each integer appears exactly once.
+
+In one operation, you can choose an arbitrary cycle of the grid and move all integers along that cycle one space over. Here, a cycle is any sequence that satisfies the following conditions:
+
+- There are at least four squares.
+- Each square appears at most once.
+- Every pair of adjacent squares, and also the first and last squares, share an edge.
+
+For example, if we had the following grid:
+
+We can choose an arbitrary cycle like this one:
+
+To get the following grid:
+
+In this particular case, the chosen cycle can be represented as the sequence $$$[1, 2, 3, 6, 5, 8, 7, 4]$$$, the numbers are in the direction that we want to rotate them in.
+
+Find any sequence of operations to sort the grid so that the array created by concatenating the rows from the highest to the lowest is sorted (look at the first picture above).
+
+Note you do not need to minimize number of operations or sum of cycle lengths. The only constraint is that the sum of all cycles lengths must not be greater than $$$10^5$$$. We can show that an answer always exists under the given constraints. Output any valid sequence of moves that will sort the grid.
+
+## Input
+The first line contains two integers $$$n$$$ and $$$m$$$ ($$$3 \leq n,m \leq 20$$$) — the dimensions of the grid.
+
+Each of the next $$$n$$$ lines contains $$$m$$$ integers $$$x_{i,1}, x_{i,2}, \ldots, x_{i, m}$$$ ($$$1 \leq x_{i,j} \leq nm$$$), denoting the values of the block in row $$$i$$$ and column $$$j$$$.
+
+It is guaranteed that all $$$x_{i,j}$$$ are distinct.
+
+## Output
+First, print a single integer $$$k$$$, the number of operations ($$$k \geq 0$$$).
+
+On each of the next $$$k$$$ lines, print a cycle as follows:
+
+$$$$$$s\ y_1\ y_2\ \ldots\ y_s$$$$$$
+
+Here, $$$s$$$ is the number of blocks to move ($$$s \geq 4$$$). Here we have block $$$y_1$$$ moving to where block $$$y_2$$$ is, block $$$y_2$$$ moving to where block $$$y_3$$$ is, and so on with block $$$y_s$$$ moving to where block $$$y_1$$$ is.
+
+The sum of $$$s$$$ over all operations must be at most $$$10^5$$$.
+
+## Note
+The first sample is the case in the statement. Here, we can use the cycle in reverse order to sort the grid.
+
+## Examples
+### Example 1
+Input:
+```
+3 3
+4 1 2
+7 6 3
+8 5 9
+```
+Output:
+```
+1
+8 1 4 7 8 5 6 3 2
+```
+
+### Example 2
+Input:
+```
+3 5
+1 2 3 5 10
+11 6 4 14 9
+12 7 8 13 15
+```
+Output:
+```
+3
+4 4 14 13 8
+4 5 10 9 4
+4 12 7 6 11
+```
+","{""tests_file"": ""datasets/codeforces_tests/1044E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1044E.json"", ""time_limit"": 2.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1067/D,"# Computer Game
+
+## Statement
+Ivan plays some computer game. There are $$$n$$$ quests in the game. Each quest can be upgraded once, this increases the reward for its completion. Each quest has $$$3$$$ parameters $$$a_{i}$$$, $$$b_{i}$$$, $$$p_{i}$$$: reward for completing quest before upgrade, reward for completing quest after upgrade ($$$a_{i} < b_{i}$$$) and probability of successful completing the quest.
+
+Each second Ivan can try to complete one quest and he will succeed with probability $$$p_{i}$$$. In case of success Ivan will get the reward and opportunity to upgrade any one quest (not necessary the one he just completed). In case of failure he gets nothing. Quests do not vanish after completing.
+
+Ivan has $$$t$$$ seconds. He wants to maximize expected value of his total gain after $$$t$$$ seconds. Help him to calculate this value.
+
+## Input
+First line contains $$$2$$$ integers $$$n$$$ ($$$ 1 \le n \le 10^{5}$$$) and $$$t$$$ ($$$ 1 \le t \le 10^{10}$$$) — number of quests and total time.
+
+Following $$$n$$$ lines contain description of quests. Each description is $$$3$$$ numbers $$$a_{i}$$$ $$$b_{i}$$$ $$$p_{i}$$$ ($$$1 \le a_{i} < b_{i} \le 10^{8}$$$, $$$0 < p_{i} < 1$$$) — reward for completing quest before upgrade, reward for completing quest after upgrade and probability of successful completing of quest. $$$a_{i}$$$ and $$$b_{i}$$$ are integers. All probabilities are given with at most $$$9$$$ decimal places.
+
+## Output
+Print the expected value.
+
+Your answer will be accepted if absolute or relative error does not exceed $$$10^{-6}$$$. Formally, let your answer be $$$a$$$, and the jury's answer be $$$b$$$. Your answer is considered correct if $$$\frac{|a-b|}{max⁡(b, \,\, 1)} \le 10^{-6}$$$.
+
+## Note
+nan
+
+## Examples
+### Example 1
+Input:
+```
+3 2
+3 1000 0.5
+1 2 0.48
+3 20 0.3
+```
+Output:
+```
+252.2500000000000
+```
+
+### Example 2
+Input:
+```
+2 2
+1 1000 0.1
+2 3 0.2
+```
+Output:
+```
+20.7200000000000
+```
+","{""tests_file"": ""datasets/codeforces_tests/1067D.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1067D.json"", ""time_limit"": 3.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1184/D2,"# Parallel Universes (Hard)
+
+## Statement
+Heidi enjoyed performing the simulation because she knew exactly when a new universe would be formed and where, and when a non-existent link would be broken and where.
+
+However, the multiverse itself works in mysterious ways. Well, it works using probabilities, which to some people is mysterious.
+
+At each unit time, when a decision is made, one of the two events will happen randomly. Let's denote $$$l$$$ as the current length of the multiverse. With a probability of $$$p_{create} = 1 - \frac{l}{m}$$$, a universe will be created. With a probability of $$$p_{break}=\frac{l}{m}$$$, a non-existent link will be broken at some position.
+
+More specifically,
+
+- When a universe is created, it will manifest itself between any two adjacent universes or at one of the ends. Each position occurs with a probability of $$$\frac{1}{l + 1}$$$.
+- When a link is broken, it could be cut between any two adjacent universes, each with a probability of $$$\frac{1}{l-1}$$$. After separating the multiverse into two segments, the segment NOT containing the Doctor will cease to exist.
+
+As earlier, the Doctor remains in the same universe. However, if at some point the multiverse breaks in such a way that the Doctor finds himself at the leftmost or rightmost end of it, the TARDIS stops functioning.
+
+In such a case, the Doctor must actually walk across the multiverse to find the tools to fix it.
+
+We are interested in the expected value of the length of the multiverse when such an event occurs.
+
+## Input
+The first and only line contains three integers $$$n$$$, $$$k$$$ and $$$m$$$ $$$(1 \le k \le n \le m \le 250)$$$, the initial length of the multiverse, the initial position of the Doctor, and the maximum possible length of the multiverse.
+
+## Output
+Output a single integer on a single line, indicating the expected length of the multiverse.
+
+If the answer is $$$\frac{p}{q}$$$, please print $$$r$$$ where $$$p \equiv r \cdot q (\text{mod } 10^9 + 7)$$$.
+
+## Note
+For the first and the second test case, without any change to the multiverse, the Doctor is already at one of the ends.
+
+For the third test case, the multiverse can only break at a position, which renders the Doctor at one of its ends.
+
+For the fourth case, things seem to be a little more complicated, because the multiverse can grow and then be broken again.
+
+## Examples
+### Example 1
+Input:
+```
+2 1 2
+```
+Output:
+```
+2
+```
+
+### Example 2
+Input:
+```
+2 2 10
+```
+Output:
+```
+2
+```
+
+### Example 3
+Input:
+```
+3 2 3
+```
+Output:
+```
+2
+```
+
+### Example 4
+Input:
+```
+3 2 5
+```
+Output:
+```
+941659828
+```
+
+### Example 5
+Input:
+```
+10 4 20
+```
+Output:
+```
+196683114
+```
+","{""tests_file"": ""datasets/codeforces_tests/1184D2.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1184D2.json"", ""time_limit"": 4.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1119/G,"# Get Ready for the Battle
+
+## Statement
+Recently Evlampy installed one interesting computer game, one of aspects of which is to split army into several groups and then fight with enemy's groups. Let us consider a simplified version of the battle.
+
+In the nearest battle Evlampy should fight an enemy army that consists of $$$m$$$ groups, the $$$i$$$-th of which has $$$hp_i$$$ health points.
+
+Evlampy's army consists of $$$n$$$ equal soldiers. Before each battle he should split his army in exactly $$$m$$$ groups (possibly, empty) so that the total size of the groups is $$$n$$$. The battle is played step-by-step. On each step each of Evlampy's groups attacks exactly one enemy group. Thus, each step is described with an array of $$$m$$$ integers $$$a_1, a_2, \ldots, a_m$$$, meaning that the $$$i$$$-th Evlampy's group attacks the $$$a_i$$$-th enemy group. Different groups can attack same group, on each step the array $$$a$$$ is chosen independently.
+
+After each step the health points of each enemy group decreases by the total number of soldiers in Evlampy's groups that attacked this enemy group at this step. Enemy group is destroyed once its health points are zero or negative. Evlampy's soldiers do not lose health.
+
+An example of a step. The numbers in green circles represent the number of soldiers in Evlampy's groups, the arrows represent attacks, the numbers in red circles represent health points of enemy groups, the blue numbers represent how much the health points will decrease after the step.
+
+Evlampy understands that the upcoming battle will take the whole night. He became sad because this way he won't have enough time to finish his homework. Now Evlampy wants you to write a program that will help him win in the smallest possible number of steps. Can you help him?
+
+In other words, find the smallest number of steps needed to destroy all enemy groups and show a possible way of doing this. Find the requires splitting of the army into $$$m$$$ groups and the arrays $$$a$$$ for each step.
+
+## Input
+The first line contains two integers $$$n$$$ and $$$m$$$ ($$$1 \leq m \leq n \leq 10^{6}$$$) — the number of soldiers in Evlampy's army and the number of groups in enemy army. $$$m$$$ is also equal to the maximum possible number of groups Evlampy can split the army to.
+
+The second line contains $$$m$$$ integers $$$hp_1, hp_2, \ldots, hp_m$$$ ($$$1 \leq hp_i \leq 10^{6}$$$) — the health points of each of the enemy groups.
+
+It is guaranteed that the sum of $$$hp_i$$$ does not exceed $$$10^{6}$$$.
+
+## Output
+Print a single integer $$$t$$$ — the minimum possible number of steps needed to win the battle.
+
+After that print $$$m$$$ integers $$$s_1, s_2, \ldots, s_m$$$ ($$$s_i \ge 0$$$, $$$s_1 + s_2 + \ldots + s_m = n$$$), meaning that the $$$i$$$-th group of Evlampy's army should contain $$$s_i$$$ soldiers.
+
+In each of the next $$$t$$$ lines print $$$m$$$ integers $$$a_1, a_2, \ldots, a_m$$$ ($$$1 \le a_i \le m$$$) — the description of one step. The integers mean that on the corresponding step the $$$i$$$-th Evlampy's group should attack the $$$a_i$$$-th enemy group. It is allowed to attack an already destroyed group.
+
+## Note
+The first example is shown below.
+
+## Examples
+### Example 1
+Input:
+```
+13 7
+6 4 3 7 2 1 5
+```
+Output:
+```
+3
+0 1 2 3 1 2 4
+2 6 2 4 4 2 4
+3 1 7 1 7 7 1
+3 1 5 3 7 5 1
+```
+
+### Example 2
+Input:
+```
+6 5
+3 3 3 3 3
+```
+Output:
+```
+3
+3 3 0 0 0
+1 2 3 4 5
+3 4 5 5 5
+5 5 5 5 5
+```
+
+### Example 3
+Input:
+```
+7 4
+1 5 9 2
+```
+Output:
+```
+3
+1 2 4 0
+1 4 2 3
+2 3 3 3
+3 3 3 3
+```
+","{""tests_file"": ""datasets/codeforces_tests/1119G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1119G.json"", ""time_limit"": 2.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1012/E,"# Cycle sort
+
+## Statement
+You are given an array of $$$n$$$ positive integers $$$a_1, a_2, \dots, a_n$$$. You can perform the following operation any number of times: select several distinct indices $$$i_1, i_2, \dots, i_k$$$ ($$$1 \le i_j \le n$$$) and move the number standing at the position $$$i_1$$$ to the position $$$i_2$$$, the number at the position $$$i_2$$$ to the position $$$i_3$$$, ..., the number at the position $$$i_k$$$ to the position $$$i_1$$$. In other words, the operation cyclically shifts elements: $$$i_1 \to i_2 \to \ldots i_k \to i_1$$$.
+
+For example, if you have $$$n=4$$$, an array $$$a_1=10, a_2=20, a_3=30, a_4=40$$$, and you choose three indices $$$i_1=2$$$, $$$i_2=1$$$, $$$i_3=4$$$, then the resulting array would become $$$a_1=20, a_2=40, a_3=30, a_4=10$$$.
+
+Your goal is to make the array sorted in non-decreasing order with the minimum number of operations. The additional constraint is that the sum of cycle lengths over all operations should be less than or equal to a number $$$s$$$. If it's impossible to sort the array while satisfying that constraint, your solution should report that as well.
+
+## Input
+The first line of the input contains two integers $$$n$$$ and $$$s$$$ ($$$1 \leq n \leq 200\,000$$$, $$$0 \leq s \leq 200\,000$$$)—the number of elements in the array and the upper bound on the sum of cycle lengths.
+
+The next line contains $$$n$$$ integers $$$a_1, a_2, \dots, a_n$$$—elements of the array ($$$1 \leq a_i \leq 10^9$$$).
+
+## Output
+If it's impossible to sort the array using cycles of total length not exceeding $$$s$$$, print a single number ""-1"" (quotes for clarity).
+
+Otherwise, print a single number $$$q$$$— the minimum number of operations required to sort the array.
+
+On the next $$$2 \cdot q$$$ lines print descriptions of operations in the order they are applied to the array. The description of $$$i$$$-th operation begins with a single line containing one integer $$$k$$$ ($$$1 \le k \le n$$$)—the length of the cycle (that is, the number of selected indices). The next line should contain $$$k$$$ distinct integers $$$i_1, i_2, \dots, i_k$$$ ($$$1 \le i_j \le n$$$)—the indices of the cycle.
+
+The sum of lengths of these cycles should be less than or equal to $$$s$$$, and the array should be sorted after applying these $$$q$$$ operations.
+
+If there are several possible answers with the optimal $$$q$$$, print any of them.
+
+## Note
+In the first example, it's also possible to sort the array with two operations of total length 5: first apply the cycle $$$1 \to 4 \to 1$$$ (of length 2), then apply the cycle $$$2 \to 3 \to 5 \to 2$$$ (of length 3). However, it would be wrong answer as you're asked to use the minimal possible number of operations, which is 1 in that case.
+
+In the second example, it's possible to the sort the array with two cycles of total length 4 ($$$1 \to 2 \to 1$$$ and $$$3 \to 4 \to 3$$$). However, it's impossible to achieve the same using shorter cycles, which is required by $$$s=3$$$.
+
+In the third example, the array is already sorted, so no operations are needed. Total length of empty set of cycles is considered to be zero.
+
+## Examples
+### Example 1
+Input:
+```
+5 5
+3 2 3 1 1
+```
+Output:
+```
+1
+5
+1 4 2 3 5
+```
+
+### Example 2
+Input:
+```
+4 3
+2 1 4 3
+```
+Output:
+```
+-1
+```
+
+### Example 3
+Input:
+```
+2 0
+2 2
+```
+Output:
+```
+0
+```
+","{""tests_file"": ""datasets/codeforces_tests/1012E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1012E.json"", ""time_limit"": 2.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1091/G,"# New Year and the Factorisation Collaboration
+
+## Statement
+Integer factorisation is hard. The RSA Factoring Challenge offered $$$$100\,000$$$ for factoring RSA-$$$1024$$$, a $$$1024$$$-bit long product of two prime numbers. To this date, nobody was able to claim the prize. We want you to factorise a $$$1024$$$-bit number.
+
+Since your programming language of choice might not offer facilities for handling large integers, we will provide you with a very simple calculator.
+
+To use this calculator, you can print queries on the standard output and retrieve the results from the standard input. The operations are as follows:
+
+- + x y where $$$x$$$ and $$$y$$$ are integers between $$$0$$$ and $$$n-1$$$. Returns $$$(x+y) \bmod n$$$.
+- - x y where $$$x$$$ and $$$y$$$ are integers between $$$0$$$ and $$$n-1$$$. Returns $$$(x-y) \bmod n$$$.
+- * x y where $$$x$$$ and $$$y$$$ are integers between $$$0$$$ and $$$n-1$$$. Returns $$$(x \cdot y) \bmod n$$$.
+- / x y where $$$x$$$ and $$$y$$$ are integers between $$$0$$$ and $$$n-1$$$ and $$$y$$$ is coprime with $$$n$$$. Returns $$$(x \cdot y^{-1}) \bmod n$$$ where $$$y^{-1}$$$ is multiplicative inverse of $$$y$$$ modulo $$$n$$$. If $$$y$$$ is not coprime with $$$n$$$, then $$$-1$$$ is returned instead.
+- sqrt x where $$$x$$$ is integer between $$$0$$$ and $$$n-1$$$ coprime with $$$n$$$. Returns $$$y$$$ such that $$$y^2 \bmod n = x$$$. If there are multiple such integers, only one of them is returned. If there are none, $$$-1$$$ is returned instead.
+- ^ x y where $$$x$$$ and $$$y$$$ are integers between $$$0$$$ and $$$n-1$$$. Returns $$${x^y \bmod n}$$$.
+
+Find the factorisation of $$$n$$$ that is a product of between $$$2$$$ and $$$10$$$ distinct prime numbers, all of form $$$4x + 3$$$ for some integer $$$x$$$.
+
+Because of technical issues, we restrict number of requests to $$$100$$$.
+
+## Input
+The only line contains a single integer $$$n$$$ ($$$21 \leq n \leq 2^{1024}$$$). It is guaranteed that $$$n$$$ is a product of between $$$2$$$ and $$$10$$$ distinct prime numbers, all of form $$$4x + 3$$$ for some integer $$$x$$$.
+
+## Output
+You can print as many queries as you wish, adhering to the time limit (see the Interaction section for more details).
+
+When you think you know the answer, output a single line of form ! k p_1 p_2 ... p_k, where $$$k$$$ is the number of prime factors of $$$n$$$, and $$$p_i$$$ are the distinct prime factors. You may print the factors in any order.
+
+Hacks input
+
+For hacks, use the following format:.
+
+The first should contain $$$k$$$ ($$$2 \leq k \leq 10$$$) — the number of prime factors of $$$n$$$.
+
+The second should contain $$$k$$$ space separated integers $$$p_1, p_2, \dots, p_k$$$ ($$$21 \leq n \leq 2^{1024}$$$) — the prime factors of $$$n$$$. All prime factors have to be of form $$$4x + 3$$$ for some integer $$$x$$$. They all have to be distinct.
+
+## Note
+We start by reading the first line containing the integer $$$n = 21$$$. Then, we ask for:
+
+1. $$$(12 + 16) \bmod 21 = 28 \bmod 21 = 7$$$.
+2. $$$(6 - 10) \bmod 21 = -4 \bmod 21 = 17$$$.
+3. $$$(8 \cdot 15) \bmod 21 = 120 \bmod 21 = 15$$$.
+4. $$$(5 \cdot 4^{-1}) \bmod 21 = (5 \cdot 16) \bmod 21 = 80 \bmod 21 = 17$$$.
+5. Square root of $$$16$$$. The answer is $$$11$$$, as $$$(11 \cdot 11) \bmod 21 = 121 \bmod 21 = 16$$$. Note that the answer may as well be $$$10$$$.
+6. Square root of $$$5$$$. There is no $$$x$$$ such that $$$x^2 \bmod 21 = 5$$$, so the output is $$$-1$$$.
+7. $$$(6^{12}) \bmod 21 = 2176782336 \bmod 21 = 15$$$.
+
+We conclude that our calculator is working, stop fooling around and realise that $$$21 = 3 \cdot 7$$$.
+
+## Examples
+### Example 1
+Input:
+```
+21
+7
+17
+15
+17
+11
+-1
+15
+```
+Output:
+```
++ 12 16
+- 6 10
+* 8 15
+/ 5 4
+sqrt 16
+sqrt 5
+^ 6 12
+! 2 3 7
+```
+","{""tests_file"": ""datasets/codeforces_tests/1091G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1091G.json"", ""time_limit"": 6.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1081/G,"# Mergesort Strikes Back
+
+## Statement
+Chouti thought about his very first days in competitive programming. When he had just learned to write merge sort, he thought that the merge sort is too slow, so he restricted the maximum depth of recursion and modified the merge sort to the following:
+
+Chouti found his idea dumb since obviously, this ""merge sort"" sometimes cannot sort the array correctly. However, Chouti is now starting to think of how good this ""merge sort"" is. Particularly, Chouti wants to know for a random permutation $$$a$$$ of $$$1, 2, \ldots, n$$$ the expected number of inversions after calling MergeSort(a, 1, n, k).
+
+It can be proved that the expected number is rational. For the given prime $$$q$$$, suppose the answer can be denoted by $$$\frac{u}{d}$$$ where $$$gcd(u,d)=1$$$, you need to output an integer $$$r$$$ satisfying $$$0 \le r<q$$$ and $$$rd \equiv u \pmod q$$$. It can be proved that such $$$r$$$ exists and is unique.
+
+## Input
+The first and only line contains three integers $$$n, k, q$$$ ($$$1 \leq n, k \leq 10^5, 10^8 \leq q \leq 10^9$$$, $$$q$$$ is a prime).
+
+## Output
+The first and only line contains an integer $$$r$$$.
+
+## Note
+In the first example, all possible permutations are $$$[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]$$$.
+
+With $$$k=1$$$, MergeSort(a, 1, n, k) will only return the original permutation. Thus the answer is $$$9/6=3/2$$$, and you should output $$$499122178$$$ because $$$499122178 \times 2 \equiv 3 \pmod {998244353}$$$.
+
+In the second example, all possible permutations are $$$[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]$$$ and the corresponding outputs of MergeSort(a, 1, n, k) are $$$[1,2,3],[1,2,3],[2,1,3],[1,2,3],[2,3,1],[1,3,2]$$$ respectively. Thus the answer is $$$4/6=2/3$$$, and you should output $$$665496236$$$ because $$$665496236 \times 3 \equiv 2 \pmod {998244353}$$$.
+
+## Examples
+### Example 1
+Input:
+```
+3 1 998244353
+```
+Output:
+```
+499122178
+```
+
+### Example 2
+Input:
+```
+3 2 998244353
+```
+Output:
+```
+665496236
+```
+
+### Example 3
+Input:
+```
+9 3 998244353
+```
+Output:
+```
+449209967
+```
+
+### Example 4
+Input:
+```
+9 4 998244353
+```
+Output:
+```
+665496237
+```
+","{""tests_file"": ""datasets/codeforces_tests/1081G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1081G.json"", ""time_limit"": 1.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1056/H,"# Detect Robots
+
+## Statement
+You successfully found poor Arkady near the exit of the station you've perfectly predicted. You sent him home on a taxi and suddenly came up with a question.
+
+There are $$$n$$$ crossroads in your city and several bidirectional roads connecting some of them. A taxi ride is a path from some crossroads to another one without passing the same crossroads twice. You have a collection of rides made by one driver and now you wonder if this driver can be a robot or they are definitely a human.
+
+You think that the driver can be a robot if for every two crossroads $$$a$$$ and $$$b$$$ the driver always chooses the same path whenever he drives from $$$a$$$ to $$$b$$$. Note that $$$a$$$ and $$$b$$$ here do not have to be the endpoints of a ride and that the path from $$$b$$$ to $$$a$$$ can be different. On the contrary, if the driver ever has driven two different paths from $$$a$$$ to $$$b$$$, they are definitely a human.
+
+Given the system of roads and the description of all rides available to you, determine if the driver can be a robot or not.
+
+## Input
+Each test contains one or more test cases. The first line contains a single integer $$$t$$$ ($$$1 \le t \le 3 \cdot 10^5$$$) — the number of test cases.
+
+The first line of each test case contains a single integer $$$n$$$ ($$$1 \le n \le 3 \cdot 10^5$$$) — the number of crossroads in the city.
+
+The next line contains a single integer $$$q$$$ ($$$1 \le q \le 3 \cdot 10^5$$$) — the number of rides available to you.
+
+Each of the following $$$q$$$ lines starts with a single integer $$$k$$$ ($$$2 \le k \le n$$$) — the number of crossroads visited by the driver on this ride. It is followed by $$$k$$$ integers $$$c_1$$$, $$$c_2$$$, ..., $$$c_k$$$ ($$$1 \le c_i \le n$$$) — the crossroads in the order the driver visited them. It is guaranteed that all crossroads in one ride are distinct.
+
+It is guaranteed that the sum of values $$$k$$$ among all rides of all test cases does not exceed $$$3 \cdot 10^5$$$.
+
+It is guaranteed that the sum of values $$$n$$$ and the sum of values $$$q$$$ doesn't exceed $$$3 \cdot 10^5$$$ among all test cases.
+
+## Output
+Output a single line for each test case.
+
+If the driver can be a robot, output ""Robot"" in a single line. Otherwise, output ""Human"".
+
+You can print each letter in any case (upper or lower).
+
+## Note
+In the first example it is clear that the driver used two different ways to get from crossroads $$$1$$$ to crossroads $$$3$$$. It must be a human.
+
+In the second example the driver always drives the cycle $$$1 \to 2 \to 3 \to 4 \to 1$$$ until he reaches destination.
+
+## Examples
+### Example 1
+Input:
+```
+1
+5
+2
+4 1 2 3 5
+3 1 4 3
+```
+Output:
+```
+Human
+```
+
+### Example 2
+Input:
+```
+1
+4
+4
+3 1 2 3
+3 2 3 4
+3 3 4 1
+3 4 1 2
+```
+Output:
+```
+Robot
+```
+","{""tests_file"": ""datasets/codeforces_tests/1056H.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1056H.json"", ""time_limit"": 1.0, ""memory_limit"": 1024.0, ""input_mode"": ""stdio""}"
+1210/F2,"# Marek and Matching (hard version)
+
+## Statement
+This is a harder version of the problem. In this version, $$$n \le 7$$$.
+
+Marek is working hard on creating strong test cases to his new algorithmic problem. Do you want to know what it is? Nah, we're not telling you. However, we can tell you how he generates test cases.
+
+Marek chooses an integer $$$n$$$ and $$$n^2$$$ integers $$$p_{ij}$$$ ($$$1 \le i \le n$$$, $$$1 \le j \le n$$$). He then generates a random bipartite graph with $$$2n$$$ vertices. There are $$$n$$$ vertices on the left side: $$$\ell_1, \ell_2, \dots, \ell_n$$$, and $$$n$$$ vertices on the right side: $$$r_1, r_2, \dots, r_n$$$. For each $$$i$$$ and $$$j$$$, he puts an edge between vertices $$$\ell_i$$$ and $$$r_j$$$ with probability $$$p_{ij}$$$ percent.
+
+It turns out that the tests will be strong only if a perfect matching exists in the generated graph. What is the probability that this will occur?
+
+It can be shown that this value can be represented as $$$\frac{P}{Q}$$$ where $$$P$$$ and $$$Q$$$ are coprime integers and $$$Q \not\equiv 0 \pmod{10^9+7}$$$. Let $$$Q^{-1}$$$ be an integer for which $$$Q \cdot Q^{-1} \equiv 1 \pmod{10^9+7}$$$. Print the value of $$$P \cdot Q^{-1}$$$ modulo $$$10^9+7$$$.
+
+## Input
+The first line of the input contains a single integer $$$n$$$ ($$$\mathbf{1 \le n \le 7}$$$). The following $$$n$$$ lines describe the probabilities of each edge appearing in the graph. The $$$i$$$-th of the lines contains $$$n$$$ integers $$$p_{i1}, p_{i2}, \dots, p_{in}$$$ ($$$0 \le p_{ij} \le 100$$$); $$$p_{ij}$$$ denotes the probability, in percent, of an edge appearing between $$$\ell_i$$$ and $$$r_j$$$.
+
+## Output
+Print a single integer — the probability that the perfect matching exists in the bipartite graph, written as $$$P \cdot Q^{-1} \pmod{10^9+7}$$$ for $$$P$$$, $$$Q$$$ defined above.
+
+## Note
+In the first sample test, each of the $$$16$$$ graphs below is equally probable. Out of these, $$$7$$$ have a perfect matching:
+
+Therefore, the probability is equal to $$$\frac{7}{16}$$$. As $$$16 \cdot 562\,500\,004 = 1 \pmod{10^9+7}$$$, the answer to the testcase is $$$7 \cdot 562\,500\,004 \mod{(10^9+7)} = 937\,500\,007$$$.
+
+## Examples
+### Example 1
+Input:
+```
+2
+50 50
+50 50
+```
+Output:
+```
+937500007
+```
+
+### Example 2
+Input:
+```
+3
+3 1 4
+1 5 9
+2 6 5
+```
+Output:
+```
+351284554
+```
+","{""tests_file"": ""datasets/codeforces_tests/1210F2.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1210F2.json"", ""time_limit"": 15.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1149/E,"# Election Promises
+
+## Statement
+In Byteland, there are two political parties fighting for seats in the Parliament in the upcoming elections: Wrong Answer Party and Time Limit Exceeded Party. As they want to convince as many citizens as possible to cast their votes on them, they keep promising lower and lower taxes.
+
+There are $$$n$$$ cities in Byteland, connected by $$$m$$$ one-way roads. Interestingly enough, the road network has no cycles — it's impossible to start in any city, follow a number of roads, and return to that city. Last year, citizens of the $$$i$$$-th city had to pay $$$h_i$$$ bourles of tax.
+
+Parties will now alternately hold the election conventions in various cities. If a party holds a convention in city $$$v$$$, the party needs to decrease the taxes in this city to a non-negative integer amount of bourles. However, at the same time they can arbitrarily modify the taxes in each of the cities that can be reached from $$$v$$$ using a single road. The only condition that must be fulfilled that the tax in each city has to remain a non-negative integer amount of bourles.
+
+The first party to hold the convention is Wrong Answer Party. It's predicted that the party to hold the last convention will win the election. Can Wrong Answer Party win regardless of Time Limit Exceeded Party's moves?
+
+## Input
+The first line of the input contains two integers $$$n$$$, $$$m$$$ ($$$1 \leq n \leq 200\,000$$$, $$$0 \leq m \leq 200\,000$$$) — the number of cities and roads in Byteland.
+
+The next line contains $$$n$$$ space-separated integers $$$h_1, h_2, \dots, h_n$$$ ($$$0 \leq h_i \leq 10^9$$$); $$$h_i$$$ denotes the amount of taxes paid in the $$$i$$$-th city.
+
+Each of the following $$$m$$$ lines contains two integers ($$$1 \leq u, v \leq n$$$, $$$u \neq v$$$), and describes a one-way road leading from the city $$$u$$$ to the city $$$v$$$. There will be no cycles in the road network. No two roads will connect the same pair of cities.
+
+We can show that the conventions cannot be held indefinitely for any correct test case.
+
+## Output
+If Wrong Answer Party can win the election, output WIN in the first line of your output. In this case, you're additionally asked to produce any convention allowing the party to win regardless of the opponent's actions. The second line should contain $$$n$$$ non-negative integers $$$h'_1, h'_2, \dots, h'_n$$$ ($$$0 \leq h'_i \leq 2 \cdot 10^{18}$$$) describing the amount of taxes paid in consecutive cities after the convention. If there are multiple answers, output any. We guarantee that if the party has any winning move, there exists a move after which no city has to pay more than $$$2 \cdot 10^{18}$$$ bourles.
+
+If the party cannot assure their victory, output LOSE in the first and only line of the output.
+
+## Note
+In the first example, Wrong Answer Party should hold the convention in the city $$$1$$$. The party will decrease the taxes in this city to $$$1$$$ bourle. As the city $$$2$$$ is directly reachable from $$$1$$$, we can arbitrarily modify the taxes in this city. The party should change the tax to $$$5$$$ bourles. It can be easily proved that Time Limit Exceeded cannot win the election after this move if Wrong Answer Party plays optimally.
+
+The second example test presents the situation we created after a single move in the previous test; as it's Wrong Answer Party's move now, the party cannot win.
+
+In the third test, we should hold the convention in the first city. This allows us to change the taxes in any city to any desired value; we can for instance decide to set all the taxes to zero, which allows the Wrong Answer Party to win the election immediately.
+
+## Examples
+### Example 1
+Input:
+```
+4 2
+2 1 1 5
+1 2
+3 4
+```
+Output:
+```
+WIN
+1 5 1 5
+```
+
+### Example 2
+Input:
+```
+4 2
+1 5 1 5
+1 2
+3 4
+```
+Output:
+```
+LOSE
+```
+
+### Example 3
+Input:
+```
+3 3
+314 159 265
+1 2
+1 3
+3 2
+```
+Output:
+```
+WIN
+0 0 0
+```
+
+### Example 4
+Input:
+```
+6 4
+2 2 5 5 6 6
+1 3
+2 4
+3 5
+4 6
+```
+Output:
+```
+LOSE
+```
+","{""tests_file"": ""datasets/codeforces_tests/1149E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1149E.json"", ""time_limit"": 2.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1091/H,"# New Year and the Tricolore Recreation
+
+## Statement
+Alice and Bob play a game on a grid with $$$n$$$ rows and infinitely many columns. In each row, there are three tokens, blue, white and red one. Before the game starts and after every move, the following two conditions must hold:
+
+- Any two tokens are not in the same cell.
+- In each row, the blue token is to the left of the white token, and the red token is to the right of the white token.
+
+First, they pick a positive integer $$$f$$$, whose value is valid for the whole game. Second, the starting player is chosen and makes his or her first turn. Then players take alternating turns. The player who is unable to make a move loses.
+
+During a move, a player first selects an integer $$$k$$$ that is either a prime number or a product of two (not necessarily distinct) primes. The smallest possible values of $$$k$$$ are thus $$$2, 3, 4, 5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 19, \dots$$$. Furthermore, $$$k$$$ must not be equal to the previously picked integer $$$f$$$. Each turn, a move is performed in exactly one of the rows.
+
+If it is Alice's turn, she chooses a single blue token and moves it $$$k$$$ cells to the right. Alternatively, she may move both the blue and the white token in the same row by the same amount $$$k$$$ to the right.
+
+On the other hand, Bob selects a single red token and moves it $$$k$$$ cells to the left. Similarly, he may also move the white and the red token in the corresponding row by $$$k$$$ to the left.
+
+Note that Alice may never move a red token, while Bob may never move a blue one. Remember that after a move, the two conditions on relative positions of the tokens must still hold.
+
+Both players play optimally. Given the initial state of the board, determine who wins for two games: if Alice starts and if Bob starts.
+
+## Input
+The first line contains a two integers $$$n$$$ and $$$f$$$ ($$$1 \leq n \leq 10^5$$$, $$$2 \leq f \leq 2 \cdot 10^5$$$) — the number of rows and the forbidden move, respectively.
+
+Each of the next $$$n$$$ lines contains three integers $$$b_i$$$, $$$w_i$$$, $$$r_i$$$ ($$$-10^5 \leq b_i < w_i < r_i \leq 10^5$$$) — the number of column in which the blue, white and red token lies in the $$$i$$$-th row, respectively.
+
+## Output
+Output two lines.
+
+The first line should contain the name of the winner when Alice starts, and the second line should contain the name of the winner when Bob starts.
+
+## Note
+The first example is as follows:
+
+When Alice starts, she can win by moving the blue and white token to right by $$$2$$$ cells, getting into position $$$2~5~9$$$. Regardless of what Bob does, Alice will have one more move and then the game is over. For instance, he can move both the red and white token by $$$2$$$ cells to the left, reaching state $$$2~3~7$$$. Alice can then move blue and white token by $$$2$$$ to move into $$$4~5~7$$$, where no more moves are possible.
+
+If Bob starts, he gains enough advantage to win. For instance, he may move the red token by $$$3$$$ to the left, getting into position $$$0~3~6$$$. Alice can, for example, move the blue token by $$$2$$$, which is countered by Bob by moving the red token by $$$2$$$. The game ends in position $$$2~3~4$$$.
+
+In the second example, it is forbidden to move by $$$2$$$, but this doesn't stop Alice from winning! She can move the blue and white token by $$$4$$$, getting into position $$$4~7~9$$$. Now Bob has no move, since moving by $$$2$$$ is forbidden.
+
+## Examples
+### Example 1
+Input:
+```
+1 6
+0 3 9
+```
+Output:
+```
+Alice
+Bob
+```
+
+### Example 2
+Input:
+```
+1 2
+0 3 9
+```
+Output:
+```
+Alice
+Bob
+```
+
+### Example 3
+Input:
+```
+10 133
+-248 -193 -187
+97 101 202
+-72 67 91
+23 89 215
+-129 -108 232
+-223 -59 236
+-99 86 242
+-137 -109 -45
+-105 173 246
+-44 228 243
+```
+Output:
+```
+Bob
+Alice
+```
+","{""tests_file"": ""datasets/codeforces_tests/1091H.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1091H.json"", ""time_limit"": 4.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1025/G,"# Company Acquisitions
+
+## Statement
+There are $$$n$$$ startups. Startups can be active or acquired. If a startup is acquired, then that means it has exactly one active startup that it is following. An active startup can have arbitrarily many acquired startups that are following it. An active startup cannot follow any other startup.
+
+The following steps happen until there is exactly one active startup. The following sequence of steps takes exactly 1 day.
+
+1. Two distinct active startups $$$A$$$, $$$B$$$, are chosen uniformly at random.
+2. A fair coin is flipped, and with equal probability, $$$A$$$ acquires $$$B$$$ or $$$B$$$ acquires $$$A$$$ (i.e. if $$$A$$$ acquires $$$B$$$, then that means $$$B$$$'s state changes from active to acquired, and its starts following $$$A$$$).
+3. When a startup changes from active to acquired, all of its previously acquired startups become active.
+
+For example, the following scenario can happen: Let's say $$$A$$$, $$$B$$$ are active startups. $$$C$$$, $$$D$$$, $$$E$$$ are acquired startups under $$$A$$$, and $$$F$$$, $$$G$$$ are acquired startups under $$$B$$$:
+
+Active startups are shown in red.
+
+If $$$A$$$ acquires $$$B$$$, then the state will be $$$A$$$, $$$F$$$, $$$G$$$ are active startups. $$$C$$$, $$$D$$$, $$$E$$$, $$$B$$$ are acquired startups under $$$A$$$. $$$F$$$ and $$$G$$$ have no acquired startups:
+
+If instead, $$$B$$$ acquires $$$A$$$, then the state will be $$$B$$$, $$$C$$$, $$$D$$$, $$$E$$$ are active startups. $$$F$$$, $$$G$$$, $$$A$$$ are acquired startups under $$$B$$$. $$$C$$$, $$$D$$$, $$$E$$$ have no acquired startups:
+
+You are given the initial state of the startups. For each startup, you are told if it is either acquired or active. If it is acquired, you are also given the index of the active startup that it is following.
+
+You're now wondering, what is the expected number of days needed for this process to finish with exactly one active startup at the end.
+
+It can be shown the expected number of days can be written as a rational number $$$P/Q$$$, where $$$P$$$ and $$$Q$$$ are co-prime integers, and $$$Q \not= 0 \pmod{10^9+7}$$$. Return the value of $$$P \cdot Q^{-1}$$$ modulo $$$10^9+7$$$.
+
+## Input
+The first line contains a single integer $$$n$$$ ($$$2 \leq n \leq 500$$$), the number of startups.
+
+The next line will contain $$$n$$$ space-separated integers $$$a_1, a_2, \ldots, a_n$$$ ($$$a_i = -1$$$ or $$$1 \leq a_i \leq n$$$). If $$$a_i = -1$$$, then that means startup $$$i$$$ is active. Otherwise, if $$$1 \leq a_i \leq n$$$, then startup $$$i$$$ is acquired, and it is currently following startup $$$a_i$$$. It is guaranteed if $$$a_i \not= -1$$$, then $$$a_{a_i} =-1$$$ (that is, all startups that are being followed are active).
+
+## Output
+Print a single integer, the expected number of days needed for the process to end with exactly one active startup, modulo $$$10^9+7$$$.
+
+## Note
+In the first sample, there are three active startups labeled $$$1$$$, $$$2$$$ and $$$3$$$, and zero acquired startups. Here's an example of how one scenario can happen
+
+1. Startup $$$1$$$ acquires startup $$$2$$$ (This state can be represented by the array $$$[-1, 1, -1]$$$)
+2. Startup $$$3$$$ acquires startup $$$1$$$ (This state can be represented by the array $$$[3, -1, -1]$$$)
+3. Startup $$$2$$$ acquires startup $$$3$$$ (This state can be represented by the array $$$[-1, -1, 2]$$$).
+4. Startup $$$2$$$ acquires startup $$$1$$$ (This state can be represented by the array $$$[2, -1, 2]$$$).
+
+At this point, there is only one active startup, and this sequence of steps took $$$4$$$ days. It can be shown the expected number of days is $$$3$$$.
+
+For the second sample, there is only one active startup, so we need zero days.
+
+For the last sample, remember to take the answer modulo $$$10^9+7$$$.
+
+## Examples
+### Example 1
+Input:
+```
+3
+-1 -1 -1
+```
+Output:
+```
+3
+```
+
+### Example 2
+Input:
+```
+2
+2 -1
+```
+Output:
+```
+0
+```
+
+### Example 3
+Input:
+```
+40
+3 3 -1 -1 4 4 -1 -1 -1 -1 -1 10 10 10 10 10 10 4 20 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 3 3 3 3 3 3 3 3
+```
+Output:
+```
+755808950
+```
+","{""tests_file"": ""datasets/codeforces_tests/1025G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1025G.json"", ""time_limit"": 1.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1045/E,"# Ancient civilizations
+
+## Statement
+On the surface of a newly discovered planet, which we model by a plane, explorers found remains of two different civilizations in various locations. They would like to learn more about those civilizations and to explore the area they need to build roads between some of locations. But as always, there are some restrictions:
+
+1. Every two locations of the same civilization are connected by a unique path of roads
+2. No two locations from different civilizations may have road between them (explorers don't want to accidentally mix civilizations they are currently exploring)
+3. Roads must be straight line segments
+4. Since intersections are expensive to build, they don't want any two roads to intersect (that is, only common point for any two roads may be at some of locations)
+
+Obviously all locations are different points in the plane, but explorers found out one more interesting information that may help you – no three locations lie on the same line!
+
+Help explorers and find a solution for their problem, or report it is impossible.
+
+## Input
+In the first line, integer $$$n$$$ $$$(1 \leq n \leq 10^3)$$$ - the number of locations discovered.
+
+In next $$$n$$$ lines, three integers $$$x, y, c$$$ $$$(0 \leq x, y \leq 10^4, c \in \{0, 1\})$$$ - coordinates of the location and number of civilization it belongs to.
+
+## Output
+In first line print number of roads that should be built.
+
+In the following lines print all pairs of locations (their $$$0$$$-based indices) that should be connected with a road.
+
+If it is not possible to build roads such that all restrictions are met, print ""Impossible"". You should not print the quotation marks.
+
+## Note
+nan
+
+## Examples
+### Example 1
+Input:
+```
+5
+0 0 1
+1 0 0
+0 1 0
+1 1 1
+3 2 0
+```
+Output:
+```
+3
+1 4
+4 2
+3 0
+```
+","{""tests_file"": ""datasets/codeforces_tests/1045E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1045E.json"", ""time_limit"": 0.5, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1284/G,"# Seollal
+
+## Statement
+It is only a few days until Seollal (Korean Lunar New Year), and Jaehyun has invited his family to his garden. There are kids among the guests. To make the gathering more fun for the kids, Jaehyun is going to run a game of hide-and-seek.
+
+The garden can be represented by a $$$n \times m$$$ grid of unit cells. Some (possibly zero) cells are blocked by rocks, and the remaining cells are free. Two cells are neighbors if they share an edge. Each cell has up to 4 neighbors: two in the horizontal direction and two in the vertical direction.
+
+Since the garden is represented as a grid, we can classify the cells in the garden as either ""black"" or ""white"". The top-left cell is black, and two cells which are neighbors must be different colors. Cell indices are 1-based, so the top-left corner of the garden is cell $$$(1, 1)$$$.
+
+Jaehyun wants to turn his garden into a maze by placing some walls between two cells. Walls can only be placed between neighboring cells. If the wall is placed between two neighboring cells $$$a$$$ and $$$b$$$, then the two cells $$$a$$$ and $$$b$$$ are not neighboring from that point. One can walk directly between two neighboring cells if and only if there is no wall directly between them.
+
+A maze must have the following property. For each pair of free cells in the maze, there must be exactly one simple path between them. A simple path between cells $$$a$$$ and $$$b$$$ is a sequence of free cells in which the first cell is $$$a$$$, the last cell is $$$b$$$, all cells are distinct, and any two consecutive cells are neighbors which are not directly blocked by a wall.
+
+At first, kids will gather in cell $$$(1, 1)$$$, and start the hide-and-seek game. A kid can hide in a cell if and only if that cell is free, it is not $$$(1, 1)$$$, and has exactly one free neighbor. Jaehyun planted roses in the black cells, so it's dangerous if the kids hide there. So Jaehyun wants to create a maze where the kids can only hide in white cells.
+
+You are given the map of the garden as input. Your task is to help Jaehyun create a maze.
+
+## Input
+Your program will be judged in multiple test cases.
+
+The first line contains the number of test cases $$$t$$$. ($$$1 \le t \le 100$$$). Afterward, $$$t$$$ test cases with the described format will be given.
+
+The first line of a test contains two integers $$$n, m$$$ ($$$2 \le n, m \le 20$$$), the size of the grid.
+
+In the next $$$n$$$ line of a test contains a string of length $$$m$$$, consisting of the following characters (without any whitespace):
+
+- O: A free cell.
+- X: A rock.
+
+It is guaranteed that the first cell (cell $$$(1, 1)$$$) is free, and every free cell is reachable from $$$(1, 1)$$$.
+
+If $$$t \geq 2$$$ is satisfied, then the size of the grid will satisfy $$$n \le 10, m \le 10$$$. In other words, if any grid with size $$$n > 10$$$ or $$$m > 10$$$ is given as an input, then it will be the only input on the test case ($$$t = 1$$$).
+
+## Output
+For each test case, print the following:
+
+If there are no possible mazes, print a single line NO.
+
+Otherwise, print a single line YES, followed by a grid of size $$$(2n-1) \times (2m-1)$$$ denoting the found maze. The rules for displaying the maze follows. All cells are indexed in 1-base.
+
+- For all $$$1 \le i \le n, 1 \le j \le m$$$, if the cell $$$(i, j)$$$ is free cell, print 'O' in the cell $$$(2i-1, 2j-1)$$$. Otherwise, print 'X' in the cell $$$(2i-1, 2j-1)$$$.
+- For all $$$1 \le i \le n, 1 \le j \le m-1$$$, if the neighboring cell $$$(i, j), (i, j+1)$$$ have wall blocking it, print ' ' in the cell $$$(2i-1, 2j)$$$. Otherwise, print any printable character except spaces in the cell $$$(2i-1, 2j)$$$. A printable character has an ASCII code in range $$$[32, 126]$$$: This includes spaces and alphanumeric characters.
+- For all $$$1 \le i \le n-1, 1 \le j \le m$$$, if the neighboring cell $$$(i, j), (i+1, j)$$$ have wall blocking it, print ' ' in the cell $$$(2i, 2j-1)$$$. Otherwise, print any printable character except spaces in the cell $$$(2i, 2j-1)$$$
+- For all $$$1 \le i \le n-1, 1 \le j \le m-1$$$, print any printable character in the cell $$$(2i, 2j)$$$.
+
+Please, be careful about trailing newline characters or spaces. Each row of the grid should contain exactly $$$2m-1$$$ characters, and rows should be separated by a newline character. Trailing spaces must not be omitted in a row.
+
+## Note
+nan
+
+## Examples
+### Example 1
+Input:
+```
+4
+2 2
+OO
+OO
+3 3
+OOO
+XOO
+OOO
+4 4
+OOOX
+XOOX
+OOXO
+OOOO
+5 6
+OOOOOO
+OOOOOO
+OOOOOO
+OOOOOO
+OOOOOO
+```
+Output:
+```
+YES
+OOO
+  O
+OOO
+NO
+YES
+OOOOO X
+  O O  
+X O O X
+  O    
+OOO X O
+O O   O
+O OOOOO
+YES
+OOOOOOOOOOO
+  O   O   O
+OOO OOO OOO
+O   O   O  
+OOO OOO OOO
+  O   O   O
+OOO OOO OOO
+O   O   O  
+OOO OOO OOO
+```
+","{""tests_file"": ""datasets/codeforces_tests/1284G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1284G.json"", ""time_limit"": 3.0, ""memory_limit"": 1024.0, ""input_mode"": ""stdio""}"
+1060/H,"# Sophisticated Device
+
+## Statement
+You are given integers $$$d$$$ and $$$p$$$, $$$p$$$ is prime.
+
+Also you have a mysterious device. It has memory cells, each contains an integer between $$$0$$$ and $$$p-1$$$. Also two instructions are supported, addition and raising to the $$$d$$$-th power. $$$\textbf{Both are modulo}$$$ $$$p$$$.
+
+The memory cells are numbered $$$1, 2, \dots, 5000$$$. Initially cells $$$1$$$ and $$$2$$$ contain integers $$$x$$$ and $$$y$$$, respectively ($$$0 \leqslant x, y \leq p - 1$$$). All other cells contain $$$\textbf{1}$$$s.
+
+You can not directly access values in cells, and you $$$\textbf{don't know}$$$ values of $$$x$$$ and $$$y$$$ (but you know they are written in first two cells). You mission, should you choose to accept it, is to write a program using the available instructions to obtain the product $$$xy$$$ modulo $$$p$$$ in one of the cells. You program should work for all possible $$$x$$$ and $$$y$$$.
+
+Addition instruction evaluates sum of values in two cells and writes it to third cell. This instruction is encoded by a string ""+ e1 e2 to"", which writes sum of values in cells e1 and e2 into cell to. Any values of e1, e2, to can coincide.
+
+Second instruction writes the $$$d$$$-th power of a value in some cell to the target cell. This instruction is encoded by a string ""^ e to"". Values e and to can coincide, in this case value in the cell will be overwritten.
+
+Last instruction is special, this is the return instruction, and it is encoded by a string ""f target"". This means you obtained values $$$xy \bmod p$$$ in the cell target. No instructions should be called after this instruction.
+
+Provide a program that obtains $$$xy \bmod p$$$ and uses no more than $$$5000$$$ instructions (including the return instruction).
+
+It is guaranteed that, under given constrains, a solution exists.
+
+## Input
+The first line contains space-separated integers $$$d$$$ and $$$p$$$ ($$$2 \leqslant d \leqslant 10$$$, $$$d < p$$$, $$$3 \leqslant p \leqslant 10^9 + 9$$$, $$$p$$$ is prime).
+
+## Output
+Output instructions, one instruction per line in the above format. There should be no more than $$$5000$$$ lines, and the last line should be the return instruction.
+
+## Note
+This problem has no sample tests. A sample output is shown below. Note that this output is not supposed to be a solution to any testcase, and is there purely to illustrate the output format.
+
+$$$\texttt{+ 1 1 3}\\ \texttt{^ 3 3}\\ \texttt{+ 3 2 2}\\ \texttt{+ 3 2 3}\\ \texttt{^ 3 1}\\ \texttt{f 1}$$$
+
+Here's a step-by-step runtime illustration:
+
+$$$\begin{array}{|c|c|c|c|} \hline \texttt{} & \text{cell 1} & \text{cell 2} & \text{cell 3} \\\hline \text{initially} & x & y & 1 \\ \hline \texttt{+ 1 1 3} & x & y & 2x \\ \hline\texttt{^ 3 3} & x & y & (2x)^d \\ \hline\texttt{+ 3 2 2} & x & y + (2x)^d & (2x)^d \\ \hline\texttt{+ 3 2 3} & x & y + (2x)^d & y + 2\cdot(2x)^d \\ \hline\texttt{^ 3 1} & (y + 2\cdot(2x)^d)^d & y + (2x)^d & y + 2\cdot(2x)^d \\ \hline\end{array}$$$
+
+Suppose that $$$d = 2$$$ and $$$p = 3$$$. Since for $$$x = 0$$$ and $$$y = 1$$$ the returned result is $$$1 \neq 0 \cdot 1 \bmod 3$$$, this program would be judged as incorrect.
+
+## Examples","{""tests_file"": ""datasets/codeforces_tests/1060H.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1060H.json"", ""time_limit"": 2.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+1148/G,"# Gold Experience
+
+## Statement
+Consider an undirected graph $$$G$$$ with $$$n$$$ vertices. There is a value $$$a_i$$$ in each vertex.
+
+Two vertices $$$i$$$ and $$$j$$$ are connected with an edge if and only if $$$gcd(a_i, a_j) > 1$$$, where $$$gcd(x, y)$$$ denotes the greatest common divisor (GCD) of integers $$$x$$$ and $$$y$$$.
+
+Consider a set of vertices. Let's call a vertex in this set fair if it is connected with an edge with all other vertices in this set.
+
+You need to find a set of $$$k$$$ vertices (where $$$k$$$ is a given integer, $$$2 \cdot k \le n$$$) where all vertices are fair or all vertices are not fair. One can show that such a set always exists.
+
+## Input
+The first line contains integers $$$n$$$ and $$$k$$$ ($$$6 \leq 2 \cdot k \leq n \leq 10^5$$$) — the number of vertices and parameter $$$k$$$.
+
+The second line contains $$$n$$$ integers $$$a_1, a_2, \ldots, a_n$$$ ($$$2 \le a_i \le 10^7$$$) — the values in the vertices.
+
+## Output
+Print exactly $$$k$$$ distinct integers — the indices of the vertices in the chosen set in any order.
+
+## Note
+In the first test case, set $$$\{2, 4, 5\}$$$ is an example of set where no vertices are fair. The vertex $$$2$$$ does not share an edge with vertex $$$4$$$ since $$$gcd(15, 8) = 1$$$. The vertex $$$4$$$ does not share an edge with vertex $$$2$$$. The vertex $$$5$$$ does not share an edge with vertex $$$2$$$.
+
+In the second test case, set $$$\{8, 5, 6, 4\}$$$ is an example of a set where all vertices are fair.
+
+## Examples
+### Example 1
+Input:
+```
+6 3
+6 15 10 8 14 12
+```
+Output:
+```
+1 3 6
+```
+
+### Example 2
+Input:
+```
+8 4
+11 15 10 6 21 15 10 6
+```
+Output:
+```
+1 2 3 4
+```
+
+### Example 3
+Input:
+```
+10 5
+3003 17017 3230 49742 546 41990 17765 570 21945 36465
+```
+Output:
+```
+4 6 9 10 1
+```
+","{""tests_file"": ""datasets/codeforces_tests/1148G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1148G.json"", ""time_limit"": 2.0, ""memory_limit"": 1024.0, ""input_mode"": ""stdio""}"
+1188/E,"# Problem from Red Panda
+
+## Statement
+At Moscow Workshops ICPC team gets a balloon for each problem they solved first. Team MSU Red Panda got so many balloons that they didn't know how to spend them. So they came up with a problem with them.
+
+There are several balloons, not more than $$$10^6$$$ in total, each one is colored in one of $$$k$$$ colors. We can perform the following operation: choose $$$k-1$$$ balloons such that they are of $$$k-1$$$ different colors, and recolor them all into remaining color. We can perform this operation any finite number of times (for example, we can only perform the operation if there are at least $$$k-1$$$ different colors among current balls).
+
+How many different balloon configurations can we get? Only number of balloons of each color matters, configurations differing only by the order of balloons are counted as equal. As this number can be very large, output it modulo $$$998244353$$$.
+
+## Input
+The first line contains a single integer $$$k$$$ ($$$2 \le k \le 10^5$$$) —the number of colors.
+
+The second line contains $$$k$$$ integers $$$a_1, a_2, \ldots, a_k$$$ ($$$0 \le a_i$$$) —initial configuration of balloons. $$$a_i$$$ is number of balloons of color $$$i$$$. The total number of balloons doesn't exceed $$$10^6$$$. In other words,
+
+$$$a_1 + a_2 + a_3 + \ldots + a_k \le 10^6$$$.
+
+## Output
+Output number of possible configurations modulo $$$998244353$$$.
+
+## Note
+In the first example, there are $$$3$$$ configurations we can get: $$$[0, 1, 2]$$$, $$$[2, 0, 1]$$$, $$$[1, 2, 0]$$$.
+
+In the second example, we can apply the operation not more than once, and possible configurations are: $$$[1, 1, 1, 1]$$$, $$$[0, 0, 0, 4]$$$, $$$[0, 0, 4, 0]$$$, $$$[0, 4, 0, 0]$$$, $$$[4, 0, 0, 0]$$$.
+
+In the third example, we can't apply any operations, so the only achievable configuration is the starting one.
+
+## Examples
+### Example 1
+Input:
+```
+3
+0 1 2
+```
+Output:
+```
+3
+```
+
+### Example 2
+Input:
+```
+4
+1 1 1 1
+```
+Output:
+```
+5
+```
+
+### Example 3
+Input:
+```
+5
+0 0 1 2 3
+```
+Output:
+```
+1
+```
+
+### Example 4
+Input:
+```
+3
+2 2 8
+```
+Output:
+```
+31
+```
+","{""tests_file"": ""datasets/codeforces_tests/1188E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1188E.json"", ""time_limit"": 1.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1266/G,"# Permutation Concatenation
+
+## Statement
+Let $$$n$$$ be an integer. Consider all permutations on integers $$$1$$$ to $$$n$$$ in lexicographic order, and concatenate them into one big sequence $$$P$$$. For example, if $$$n = 3$$$, then $$$P = [1, 2, 3, 1, 3, 2, 2, 1, 3, 2, 3, 1, 3, 1, 2, 3, 2, 1]$$$. The length of this sequence is $$$n \cdot n!$$$.
+
+Let $$$1 \leq i \leq j \leq n \cdot n!$$$ be a pair of indices. We call the sequence $$$(P_i, P_{i+1}, \dots, P_{j-1}, P_j)$$$ a subarray of $$$P$$$.
+
+You are given $$$n$$$. Find the number of distinct subarrays of $$$P$$$. Since this number may be large, output it modulo $$$998244353$$$ (a prime number).
+
+## Input
+The only line contains one integer $$$n$$$ ($$$1 \leq n \leq 10^6$$$), as described in the problem statement.
+
+## Output
+Output a single integer — the number of distinct subarrays, modulo $$$998244353$$$.
+
+## Note
+In the first example, the sequence $$$P = [1, 2, 2, 1]$$$. It has eight distinct subarrays: $$$[1]$$$, $$$[2]$$$, $$$[1, 2]$$$, $$$[2, 1]$$$, $$$[2, 2]$$$, $$$[1, 2, 2]$$$, $$$[2, 2, 1]$$$ and $$$[1, 2, 2, 1]$$$.
+
+## Examples
+### Example 1
+Input:
+```
+2
+```
+Output:
+```
+8
+```
+
+### Example 2
+Input:
+```
+10
+```
+Output:
+```
+19210869
+```
+","{""tests_file"": ""datasets/codeforces_tests/1266G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1266G.json"", ""time_limit"": 1.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1209/H,"# Moving Walkways
+
+## Statement
+Airports often use moving walkways to help you walking big distances faster. Each such walkway has some speed that effectively increases your speed. You can stand on such a walkway and let it move you, or you could also walk and then your effective speed is your walking speed plus walkway's speed.
+
+Limak wants to get from point $$$0$$$ to point $$$L$$$ on a straight line. There are $$$n$$$ disjoint walkways in between. The $$$i$$$-th walkway is described by two integers $$$x_i$$$ and $$$y_i$$$ and a real value $$$s_i$$$. The $$$i$$$-th walkway starts at $$$x_i$$$, ends at $$$y_i$$$ and has speed $$$s_i$$$.
+
+Every walkway is located inside the segment $$$[0, L]$$$ and no two walkways have positive intersection. However, they can touch by endpoints.
+
+Limak needs to decide how to distribute his energy. For example, it might make more sense to stand somewhere (or to walk slowly) to then have a lot of energy to walk faster.
+
+Limak's initial energy is $$$0$$$ and it must never drop below that value. At any moment, he can walk with any speed $$$v$$$ in the interval $$$[0, 2]$$$ and it will cost him $$$v$$$ energy per second, but he continuously recovers energy with speed of $$$1$$$ energy per second. So, when he walks with speed $$$v$$$, his energy increases by $$$(1-v)$$$. Note that negative value would mean losing energy.
+
+In particular, he can walk with speed $$$1$$$ and this won't change his energy at all, while walking with speed $$$0.77$$$ effectively gives him $$$0.23$$$ energy per second.
+
+Limak can choose his speed arbitrarily (any real value in interval $$$[0, 2]$$$) at every moment of time (including the moments when he is located on non-integer positions). Everything is continuous (non-discrete).
+
+What is the fastest time Limak can get from $$$0$$$ to $$$L$$$?
+
+## Input
+The first line contains integers $$$n$$$ and $$$L$$$ ($$$1 \le n \le 200\,000$$$, $$$1 \le L \le 10^9$$$), the number of walkways and the distance to walk.
+
+Each of the next $$$n$$$ lines contains integers $$$x_i$$$, $$$y_i$$$ and real value $$$s_i$$$ ($$$0 \le x_i < y_i \le L$$$, $$$0.1 \le s_i \le 10.0$$$). The value $$$s_i$$$ is given with at most $$$9$$$ digits after decimal point.
+
+It's guaranteed, that no two walkways have a positive intersection. The walkways are listed from left to right. That is, $$$y_i \le x_{i + 1}$$$ for $$$1 \le i \le n - 1$$$.
+
+## Output
+Print one real value, the fastest possible time to reach $$$L$$$. Your answer will be considered correct if its absolute or relative error won't exceed $$$10^{-9}$$$.
+
+## Note
+The drawings show the first two examples. In the first one, there is a walkway from $$$0$$$ to $$$2$$$ with speed $$$2.0$$$ and Limak wants to get to point $$$5$$$. The second example has a walkway from $$$2$$$ to $$$4$$$ with speed $$$0.91$$$.
+
+In the first example, one of optimal strategies is as follows.
+
+- Get from $$$0$$$ to $$$2$$$ by standing still on the walkway. It moves you with speed $$$2$$$ so it takes $$$1$$$ second and you save up $$$1$$$ energy.
+- Get from $$$2$$$ to $$$4$$$ by walking with max speed $$$2$$$ for next $$$1$$$ second. It takes $$$1$$$ second again and the energy drops to $$$0$$$.
+- Get from $$$4$$$ to $$$5$$$ by walking with speed $$$1$$$. It takes $$$1$$$ second and the energy stays constant at the value $$$0$$$.
+
+The total time is $$$1 + 1 + 1 = 3$$$.
+
+## Examples
+### Example 1
+Input:
+```
+1 5
+0 2 2.0
+```
+Output:
+```
+3.000000000000
+```
+
+### Example 2
+Input:
+```
+1 5
+2 4 0.91
+```
+Output:
+```
+3.808900523560
+```
+
+### Example 3
+Input:
+```
+3 1000
+0 990 1.777777
+995 996 1.123456789
+996 1000 2.0
+```
+Output:
+```
+361.568848429553
+```
+","{""tests_file"": ""datasets/codeforces_tests/1209H.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1209H.json"", ""time_limit"": 2.5, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1063/F,"# String Journey
+
+## Statement
+We call a sequence of strings t1, ..., tk a journey of length k, if for each i > 1 ti is a substring of ti - 1 and length of ti is strictly less than length of ti - 1. For example, {ab, b} is a journey, but {ab, c} and {a, a} are not.
+
+Define a journey on string s as journey t1, ..., tk, such that all its parts can be nested inside s in such a way that there exists a sequence of strings u1, ..., uk + 1 (each of these strings can be empty) and s = u1 t1 u2 t2... uk tk uk + 1. As an example, {ab, b} is a journey on string abb, but not on bab because the journey strings ti should appear from the left to the right.
+
+The length of a journey on a string is the number of strings in it. Determine the maximum possible length of a journey on the given string s.
+
+## Input
+The first line contains a single integer n (1 ≤ n ≤ 500 000) — the length of string s.
+
+The second line contains the string s itself, consisting of n lowercase Latin letters.
+
+## Output
+Print one number — the maximum possible length of string journey on s.
+
+## Note
+In the first sample, the string journey of maximum length is {abcd, bc, c}.
+
+In the second sample, one of the suitable journeys is {bb, b}.
+
+## Examples
+### Example 1
+Input:
+```
+7
+abcdbcc
+```
+Output:
+```
+3
+```
+
+### Example 2
+Input:
+```
+4
+bbcb
+```
+Output:
+```
+2
+```
+","{""tests_file"": ""datasets/codeforces_tests/1063F.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1063F.json"", ""time_limit"": 5.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+1083/F,"# The Fair Nut and Amusing Xor
+
+## Statement
+The Fair Nut has two arrays $$$a$$$ and $$$b$$$, consisting of $$$n$$$ numbers. He found them so long ago that no one knows when they came to him.
+
+The Fair Nut often changes numbers in his arrays. He also is interested in how similar $$$a$$$ and $$$b$$$ are after every modification.
+
+Let's denote similarity of two arrays as the minimum number of operations to apply to make arrays equal (every operation can be applied for both arrays). If it is impossible, similarity will be equal $$$-1$$$.
+
+Per one operation you can choose a subarray with length $$$k$$$ ($$$k$$$ is fixed), and change every element $$$a_i$$$, which belongs to the chosen subarray, to $$$a_i \oplus x$$$ ($$$x$$$ can be chosen), where $$$\oplus$$$ denotes the bitwise XOR operation.
+
+Nut has already calculated the similarity of the arrays after every modification. Can you do it?
+
+Note that you just need to calculate those values, that is you do not need to apply any operations.
+
+## Input
+The first line contains three numbers $$$n$$$, $$$k$$$ and $$$q$$$ ($$$1 \le k \le n \le 2 \cdot 10^5$$$, $$$0 \le q \le 2 \cdot 10^5$$$) — the length of the arrays, the length of the subarrays, to which the operations are applied, and the number of queries.
+
+The second line contains $$$n$$$ integers $$$a_1, a_2, \ldots, a_n$$$ ($$$0 \le a_i < 2^{14}$$$) — elements of array $$$a$$$.
+
+The third line contains $$$n$$$ integers $$$b_1, b_2, \ldots, b_n$$$ ($$$0 \le b_i < 2^{14}$$$) — elements of array $$$b$$$.
+
+Each of the next $$$q$$$ lines describes query and contains string $$$s$$$ and two integers $$$p$$$ and $$$v$$$ ($$$1 \le p \le n$$$, $$$0 \le v < 2^{14}$$$) — array, which this query changes («a» or «b» without quotes), index of changing element and its new value.
+
+## Output
+On the first line print initial similarity of arrays $$$a$$$ and $$$b$$$.
+
+On the $$$i$$$-th of following $$$q$$$ lines print similarity of $$$a$$$ and $$$b$$$ after applying first $$$i$$$ modifications.
+
+## Note
+In the first sample making arrays $$$[0, 4, 2]$$$ and $$$[1, 2, 3]$$$ is impossible with $$$k=3$$$. After the modification, you can apply the operation with $$$x=1$$$ to the whole first array (its length is equal to $$$k$$$), and it will be equal to the second array.
+
+In order to make arrays equal in the second sample before changes, you can apply operations with $$$x=1$$$ on subarray $$$[1, 2]$$$ of $$$a$$$ and with $$$x=2$$$ on subarray $$$[2, 3]$$$ of $$$b$$$.
+
+After all queries arrays will be equal $$$[0, 3, 2]$$$ and $$$[1, 0, 0]$$$. The same operations make them equal $$$[1, 2, 2]$$$.
+
+## Examples
+### Example 1
+Input:
+```
+3 3 1
+0 4 2
+1 2 3
+b 2 5
+```
+Output:
+```
+-1
+1
+```
+
+### Example 2
+Input:
+```
+3 2 2
+1 3 2
+0 0 0
+a 1 0
+b 1 1
+```
+Output:
+```
+2
+-1
+2
+```
+","{""tests_file"": ""datasets/codeforces_tests/1083F.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1083F.json"", ""time_limit"": 4.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1190/F,"# Tokitsukaze and Powers
+
+## Statement
+Tokitsukaze is playing a room escape game designed by SkywalkerT. In this game, she needs to find out hidden clues in the room to reveal a way to escape.
+
+After a while, she realizes that the only way to run away is to open the digital door lock since she accidentally went into a secret compartment and found some clues, which can be interpreted as:
+
+- Only when you enter $$$n$$$ possible different passwords can you open the door;
+- Passwords must be integers ranged from $$$0$$$ to $$$(m - 1)$$$;
+- A password cannot be $$$x$$$ ($$$0 \leq x < m$$$) if $$$x$$$ and $$$m$$$ are not coprime (i.e. $$$x$$$ and $$$m$$$ have some common divisor greater than $$$1$$$);
+- A password cannot be $$$x$$$ ($$$0 \leq x < m$$$) if there exist non-negative integers $$$e$$$ and $$$k$$$ such that $$$p^e = k m + x$$$, where $$$p$$$ is a secret integer;
+- Any integer that doesn't break the above rules can be a password;
+- Several integers are hidden in the room, but only one of them can be $$$p$$$.
+
+Fortunately, she finds that $$$n$$$ and $$$m$$$ are recorded in the lock. However, what makes Tokitsukaze frustrated is that she doesn't do well in math. Now that she has found an integer that is suspected to be $$$p$$$, she wants you to help her find out $$$n$$$ possible passwords, or determine the integer cannot be $$$p$$$.
+
+## Input
+The only line contains three integers $$$n$$$, $$$m$$$ and $$$p$$$ ($$$1 \leq n \leq 5 \times 10^5$$$, $$$1 \leq p < m \leq 10^{18}$$$).
+
+It is guaranteed that $$$m$$$ is a positive integer power of a single prime number.
+
+## Output
+If the number of possible different passwords is less than $$$n$$$, print a single integer $$$-1$$$.
+
+Otherwise, print $$$n$$$ distinct integers ranged from $$$0$$$ to $$$(m - 1)$$$ as passwords. You can print these integers in any order. Besides, if there are multiple solutions, print any.
+
+## Note
+In the first example, there is no possible password.
+
+In each of the last three examples, the given integer $$$n$$$ equals to the number of possible different passwords for the given integers $$$m$$$ and $$$p$$$, so if the order of numbers in the output is ignored, the solution is unique as shown above.
+
+## Examples
+### Example 1
+Input:
+```
+1 2 1
+```
+Output:
+```
+-1
+```
+
+### Example 2
+Input:
+```
+3 5 1
+```
+Output:
+```
+2 4 3
+```
+
+### Example 3
+Input:
+```
+2 5 4
+```
+Output:
+```
+2 3
+```
+
+### Example 4
+Input:
+```
+4 9 8
+```
+Output:
+```
+2 4 7 5
+```
+","{""tests_file"": ""datasets/codeforces_tests/1190F.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1190F.json"", ""time_limit"": 3.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1012/F,"# Passports
+
+## Statement
+Gleb is a famous competitive programming teacher from Innopolis. He is planning a trip to N programming camps in the nearest future. Each camp will be held in a different country. For each of them, Gleb needs to apply for a visa.
+
+For each of these trips Gleb knows three integers: the number of the first day of the trip si, the length of the trip in days leni, and the number of days ti this country's consulate will take to process a visa application and stick a visa in a passport. Gleb has P (1 ≤ P ≤ 2) valid passports and is able to decide which visa he wants to put in which passport.
+
+For each trip, Gleb will have a flight to that country early in the morning of the day si and will return back late in the evening of the day si + leni - 1.
+
+To apply for a visa on the day d, Gleb needs to be in Innopolis in the middle of this day. So he can't apply for a visa while he is on a trip, including the first and the last days. If a trip starts the next day after the end of the other one, Gleb can't apply for a visa between them as well. The earliest Gleb can apply for a visa is day 1.
+
+After applying for a visa of country i on day d, Gleb will get his passport back in the middle of the day d + ti. Consulates use delivery services, so Gleb can get his passport back even if he is not in Innopolis on this day. Gleb can apply for another visa on the same day he received his passport back, if he is in Innopolis this day.
+
+Gleb will not be able to start his trip on day si if he doesn't has a passport with a visa for the corresponding country in the morning of day si. In particular, the passport should not be in another country's consulate for visa processing.
+
+Help Gleb to decide which visas he needs to receive in which passport, and when he should apply for each visa.
+
+## Input
+In the first line of the input there are two integers N (1 ≤ N ≤ 22) and P (1 ≤ P ≤ 2)—the number of trips and the number of passports Gleb has, respectively.
+
+The next N lines describe Gleb's trips. Each line contains three positive integers si, leni, ti (1 ≤ si, leni, ti ≤ 109)—the first day of the trip, the length of the trip and number of days the consulate of this country needs to process a visa application. It is guaranteed that no two trips intersect.
+
+## Output
+If it is impossible to get all visas on time, just print ""NO"" (quotes for clarity). Otherwise, print ""YES"" and N lines describing trips. For each trip, first print number of the passport Gleb should put this country's visa in, and then print number of the day he should apply for it. Print trips in the same order as they appear in the input. Days are numbered from 1, starting with tomorrow—the first day you can apply for a visa. Passports are numbered from 1 to P.
+
+If there are several possible answers, print any of them.
+
+## Note
+Examples with answer ""YES"" are depicted below.
+
+Each cell of the stripe represents a single day. Rectangles represent trips, each trip starts in the morning and ends in the evening. Rectangles with angled corners represent visa applications. Each application starts in the middle of a day and ends ti days after. The trip and the visa application for the same country have the same color.
+
+In examples with two passports, visa applications and trips depicted above the time stripe are made using the first passport, visa applications and trips depicted below the time stripe are made using the second passport.
+
+Example 1:
+
+Example 2:
+
+Example 3:
+
+## Examples
+### Example 1
+Input:
+```
+2 1
+3 1 1
+6 1 1
+```
+Output:
+```
+YES
+1 1
+1 4
+```
+
+### Example 2
+Input:
+```
+3 1
+13 2 2
+7 3 1
+19 3 4
+```
+Output:
+```
+YES
+1 10
+1 1
+1 2
+```
+
+### Example 3
+Input:
+```
+7 2
+15 1 1
+14 1 1
+18 1 1
+21 1 1
+9 4 6
+22 2 5
+5 4 3
+```
+Output:
+```
+YES
+2 13
+1 1
+1 16
+1 19
+1 2
+2 16
+2 1
+```
+
+### Example 4
+Input:
+```
+3 1
+7 3 1
+13 2 3
+19 3 4
+```
+Output:
+```
+NO
+```
+","{""tests_file"": ""datasets/codeforces_tests/1012F.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1012F.json"", ""time_limit"": 2.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+2029/I,"# Variance Challenge
+
+## Statement
+Kevin has recently learned the definition of variance. For an array $$$a$$$ of length $$$n$$$, the variance of $$$a$$$ is defined as follows:
+
+- Let $$$x=\dfrac{1}{n}\displaystyle\sum_{i=1}^n a_i$$$, i.e., $$$x$$$ is the mean of the array $$$a$$$;
+- Then, the variance of $$$a$$$ is $$$$$$ V(a)=\frac{1}{n}\sum_{i=1}^n(a_i-x)^2. $$$$$$
+
+Now, Kevin gives you an array $$$a$$$ consisting of $$$n$$$ integers, as well as an integer $$$k$$$. You can perform the following operation on $$$a$$$:
+
+- Select an interval $$$[l,r]$$$ ($$$1\le l\le r\le n$$$), then for each $$$l\le i\le r$$$, increase $$$a_i$$$ by $$$k$$$.
+
+For each $$$1\le p\le m$$$, you have to find the minimum possible variance of $$$a$$$ after exactly $$$p$$$ operations are performed, independently for each $$$p$$$.
+
+For simplicity, you only need to output the answers multiplied by $$$n^2$$$. It can be proven that the results are always integers.
+
+## Input
+Each test contains multiple test cases. The first line of the input contains a single integer $$$t$$$ ($$$1\le t\le 100$$$) — the number of test cases. The description of test cases follows.
+
+The first line of each test case contains three integers $$$n$$$, $$$m$$$, and $$$k$$$ ($$$1\le n,m\le 5000$$$, $$$\color{red}{n\cdot m\le 2\cdot 10^4}$$$, $$$1\le k\le 10^5$$$) — the length of the array $$$a$$$, the maximum number of operations, and the number you add to $$$a_i$$$ each time, respectively.
+
+The second line contains $$$n$$$ integers $$$a_1,a_2,\ldots, a_n$$$ ($$$1\le a_i\le 10^5$$$) — the elements of the array $$$a$$$.
+
+It is guaranteed that the sum of $$$n\cdot m$$$ over all tests does not exceed $$$2\cdot 10^4$$$.
+
+## Output
+For each test case, output $$$m$$$ integers in a single line, the $$$p$$$-th integer denoting the minimum possible variance of $$$a$$$ when exactly $$$p$$$ operations are performed, multiplied by $$$n^2$$$.
+
+## Note
+In the first test case:
+
+- For $$$p = 1$$$, you can perform the operation on $$$[1, 1]$$$, changing $$$a$$$ from $$$[1, 2, 2]$$$ to $$$[2, 2, 2]$$$. Since all of the elements are equal, the variance is equal to $$$0$$$.
+- For $$$p = 2$$$, you can perform the operation on $$$[1, 3]$$$ and then $$$[1, 1]$$$, changing $$$a$$$ from $$$[1, 2, 2]$$$ to $$$[2, 3, 3]$$$ to $$$[3, 3, 3]$$$. Since all of the elements are equal, the variance is equal to $$$0$$$.
+
+In the second test case, some possible optimal choices are:
+
+- $$$p=1$$$: $$$[\underline{1,}\,2,2]\to [3,2,2]$$$;
+- $$$p=2$$$: $$$[1,\underline{2,2}] \to [\underline{1,}\,4,4] \to [3,4,4]$$$.
+
+In the third test case, some possible optimal choices are:
+
+- $$$p=1$$$: $$$[10,\underline{1,1,1,1,10,1,1,1,1}]\to[10,2,2,2,2,11,2,2,2,2]$$$;
+- $$$p=2$$$: $$$[10,1,1,1,1,10,\underline{1,1,1,1}] \to [10,\underline{1,1,1,1},10,2,2,2,2] \to [10,2,2,2,2,10,2,2,2,2]$$$.
+
+In the eighth test case, the optimal choice for all $$$p$$$ is to perform the operation on the whole array $$$p$$$ times.
+
+## Examples
+### Example 1
+Input:
+```
+9
+3 2 1
+1 2 2
+3 2 2
+1 2 2
+10 2 1
+10 1 1 1 1 10 1 1 1 1
+6 8 2
+1 1 4 5 1 3
+8 8 7
+20 43 24 2 4 3 20 43
+8 8 3
+20 43 24 2 4 3 20 43
+10 12 1
+5 3 3 5 4 1 8 1 1 1
+13 10 100000
+1 2 3 4 5 6 7 8 9 10 11 5 4
+10 5 10000
+2308 9982 4435 3310 100000 9 7 8100 1919 100000
+```
+Output:
+```
+0 0
+2 2
+1161 1024
+53 21 21 5 5 5 5 5
+10608 6912 4448 3104 1991 1312 535 304
+13248 11184 9375 7815 6447 5319 4383 3687
+385 316 269 224 181 156 124 101 80 56 41 29
+1486 1486 1486 1486 1486 1486 1486 1486 1486 1486
+134618047140 119919447140 107020847140 93922247140 82623647140
+```
+","{""tests_file"": ""datasets/codeforces_tests/2029I.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2029I.json"", ""time_limit"": 6.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1097/H,"# Mateusz and an Infinite Sequence
+
+## Statement
+A Thue-Morse-Radecki-Mateusz sequence (Thorse-Radewoosh sequence in short) is an infinite sequence constructed from a finite sequence $$$\mathrm{gen}$$$ of length $$$d$$$ and an integer $$$m$$$, obtained in the following sequence of steps:
+
+- In the beginning, we define the one-element sequence $$$M_0=(0)$$$.
+- In the $$$k$$$-th step, $$$k \geq 1$$$, we define the sequence $$$M_k$$$ to be the concatenation of the $$$d$$$ copies of $$$M_{k-1}$$$. However, each of them is altered slightly — in the $$$i$$$-th of them ($$$1 \leq i \leq d$$$), each element $$$x$$$ is changed to $$$(x+\mathrm{gen}_i) \pmod{m}$$$.
+
+For instance, if we pick $$$\mathrm{gen} = (0, \color{blue}{1}, \color{green}{2})$$$ and $$$m = 4$$$:
+
+- $$$M_0 = (0)$$$,
+- $$$M_1 = (0, \color{blue}{1}, \color{green}{2})$$$,
+- $$$M_2 = (0, 1, 2, \color{blue}{1, 2, 3}, \color{green}{2, 3, 0})$$$,
+- $$$M_3 = (0, 1, 2, 1, 2, 3, 2, 3, 0, \color{blue}{1, 2, 3, 2, 3, 0, 3, 0, 1}, \color{green}{2, 3, 0, 3, 0, 1, 0, 1, 2})$$$, and so on.
+
+As you can see, as long as the first element of $$$\mathrm{gen}$$$ is $$$0$$$, each consecutive step produces a sequence whose prefix is the sequence generated in the previous step. Therefore, we can define the infinite Thorse-Radewoosh sequence $$$M_\infty$$$ as the sequence obtained by applying the step above indefinitely. For the parameters above, $$$M_\infty = (0, 1, 2, 1, 2, 3, 2, 3, 0, 1, 2, 3, 2, 3, 0, 3, 0, 1, \dots)$$$.
+
+Mateusz picked a sequence $$$\mathrm{gen}$$$ and an integer $$$m$$$, and used them to obtain a Thorse-Radewoosh sequence $$$M_\infty$$$. He then picked two integers $$$l$$$, $$$r$$$, and wrote down a subsequence of this sequence $$$A := ((M_\infty)_l, (M_\infty)_{l+1}, \dots, (M_\infty)_r)$$$.
+
+Note that we use the $$$1$$$-based indexing both for $$$M_\infty$$$ and $$$A$$$.
+
+Mateusz has his favorite sequence $$$B$$$ with length $$$n$$$, and would like to see how large it is compared to $$$A$$$. Let's say that $$$B$$$ majorizes sequence $$$X$$$ of length $$$n$$$ (let's denote it as $$$B \geq X$$$) if and only if for all $$$i \in \{1, 2, \dots, n\}$$$, we have $$$B_i \geq X_i$$$.
+
+He now asks himself how many integers $$$x$$$ in the range $$$[1, |A| - n + 1]$$$ there are such that $$$B \geq (A_x, A_{x+1}, A_{x+2}, \dots, A_{x+n-1})$$$. As both sequences were huge, answering the question using only his pen and paper turned out to be too time-consuming. Can you help him automate his research?
+
+## Input
+The first line contains two integers $$$d$$$ and $$$m$$$ ($$$2 \leq d \leq 20$$$, $$$2 \leq m \leq 60$$$) — the length of the sequence $$$\mathrm{gen}$$$ and an integer used to perform the modular operations. The second line contains $$$d$$$ integers $$$\mathrm{gen}_i$$$ ($$$0 \leq \mathrm{gen}_i < m$$$). It's guaranteed that the first element of the sequence $$$\mathrm{gen}$$$ is equal to zero.
+
+The third line contains one integer $$$n$$$ ($$$1 \leq n \leq 30000$$$) — the length of the sequence $$$B$$$. The fourth line contains $$$n$$$ integers $$$B_i$$$ ($$$0 \leq B_i < m$$$). The fifth line contains two integers $$$l$$$ and $$$r$$$ ($$$1 \leq l \leq r \leq 10^{18}$$$, $$$r-l+1 \geq n$$$).
+
+## Output
+Print a single integer — the answer to the problem.
+
+## Note
+Thorse-Radewoosh sequence in the first example is the standard Thue-Morse sequence, so the sequence $$$A$$$ is as follows: $$$11010011001011010010$$$. Here are the places where the sequence $$$B$$$ majorizes $$$A$$$:
+
+## Examples
+### Example 1
+Input:
+```
+2 2
+0 1
+4
+0 1 1 0
+2 21
+```
+Output:
+```
+6
+```
+
+### Example 2
+Input:
+```
+3 4
+0 1 2
+2
+0 2
+6 11
+```
+Output:
+```
+1
+```
+","{""tests_file"": ""datasets/codeforces_tests/1097H.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1097H.json"", ""time_limit"": 7.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+1010/F,"# Tree
+
+## Statement
+The Main Martian Tree grows on Mars. It is a binary tree (a rooted tree, with no more than two sons at each vertex) with $$$n$$$ vertices, where the root vertex has the number $$$1$$$. Its fruits are the Main Martian Fruits. It's summer now, so this tree does not have any fruit yet.
+
+Autumn is coming soon, and leaves and branches will begin to fall off the tree. It is clear, that if a vertex falls off the tree, then its entire subtree will fall off too. In addition, the root will remain on the tree. Formally: the tree will have some connected subset of vertices containing the root.
+
+After that, the fruits will grow on the tree (only at those vertices which remain). Exactly $$$x$$$ fruits will grow in the root. The number of fruits in each remaining vertex will be not less than the sum of the numbers of fruits in the remaining sons of this vertex. It is allowed, that some vertices will not have any fruits.
+
+Natasha wondered how many tree configurations can be after the described changes. Since this number can be very large, output it modulo $$$998244353$$$.
+
+Two configurations of the resulting tree are considered different if one of these two conditions is true:
+
+- they have different subsets of remaining vertices;
+- they have the same subset of remaining vertices, but there is a vertex in this subset where they have a different amount of fruits.
+
+## Input
+The first line contains two integers: $$$n$$$ and $$$x$$$ ($$$1 \le n \le 10^5$$$, $$$0 \le x \le 10^{18}$$$) — the size of the tree and the number of fruits in the root.
+
+The $$$i$$$-th of the following $$$(n-1)$$$ lines contains two integers $$$a_i$$$ and $$$b_i$$$ ($$$1 \le a_i, b_i \le n$$$) — vertices connected by the $$$i$$$-th edge of the tree.
+
+It is guaranteed that the input data describes a correct binary tree with the root at the vertex $$$1$$$.
+
+## Output
+Print one number — the number of configurations of the resulting tree modulo $$$998244353$$$.
+
+## Note
+Consider the first example.
+
+There are $$$2$$$ fruits at the vertex $$$1$$$. The following $$$13$$$ options are possible:
+
+- there is no vertex $$$2$$$, there is no vertex $$$3$$$;
+- there is no vertex $$$2$$$, there are no fruits at the vertex $$$3$$$;
+- there is no vertex $$$2$$$, there is $$$1$$$ fruit at the vertex $$$3$$$;
+- there is no vertex $$$2$$$, there are $$$2$$$ fruits at the vertex $$$3$$$;
+- there are no fruits at the vertex $$$2$$$, there is no vertex $$$3$$$;
+- there are no fruits at the vertex $$$2$$$, there are no fruits at the vertex $$$3$$$;
+- there are no fruits at the vertex $$$2$$$, there is $$$1$$$ fruit at the vertex $$$3$$$;
+- there are no fruits at the vertex $$$2$$$, there are $$$2$$$ fruits at the vertex $$$3$$$;
+- there is $$$1$$$ fruit at the vertex $$$2$$$, there is no vertex $$$3$$$;
+- there is $$$1$$$ fruit at the vertex $$$2$$$, there are no fruits at the vertex $$$3$$$;
+- there is $$$1$$$ fruit at the vertex $$$2$$$, there is $$$1$$$ fruit at the vertex $$$3$$$;
+- there are $$$2$$$ fruits at the vertex $$$2$$$, there is no vertex $$$3$$$;
+- there are $$$2$$$ fruits at the vertex $$$2$$$, there are no fruits at the vertex $$$3$$$.
+
+Consider the second example. There are $$$5$$$ fruits at the vertex $$$1$$$. The following $$$7$$$ options are possible:
+
+- there is no vertex $$$2$$$;
+- there are no fruits at the vertex $$$2$$$;
+- there is $$$1$$$ fruit at the vertex $$$2$$$;
+- there are $$$2$$$ fruits at the vertex $$$2$$$;
+- there are $$$3$$$ fruits at the vertex $$$2$$$;
+- there are $$$4$$$ fruits at the vertex $$$2$$$;
+- there are $$$5$$$ fruits at the vertex $$$2$$$.
+
+## Examples
+### Example 1
+Input:
+```
+3 2
+1 2
+1 3
+```
+Output:
+```
+13
+```
+
+### Example 2
+Input:
+```
+2 5
+1 2
+```
+Output:
+```
+7
+```
+
+### Example 3
+Input:
+```
+4 10
+1 2
+1 3
+3 4
+```
+Output:
+```
+441
+```
+","{""tests_file"": ""datasets/codeforces_tests/1010F.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1010F.json"", ""time_limit"": 7.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1158/E,"# Strange device
+
+## Statement
+It is an interactive problem.
+
+Vasya enjoys solving quizzes. He found a strange device and wants to know how it works.
+
+This device encrypted with the tree (connected undirected graph without cycles) with $$$n$$$ vertices, numbered with integers from $$$1$$$ to $$$n$$$. To solve this quiz you should guess this tree.
+
+Fortunately, this device can make one operation, using which you should guess the cipher. You can give the device an array $$$d_1, d_2, \ldots, d_n$$$ of non-negative integers. On the device, there are $$$n$$$ lamps, $$$i$$$-th of them is connected with $$$i$$$-th vertex of the tree. For all $$$i$$$ the light will turn on the $$$i$$$-th lamp, if there exist such vertex of the tree with number $$$j \neq i$$$ that $$$dist(i, j) \leq d_j$$$. Let's define $$$dist(i, j)$$$ as the distance between vertices $$$i$$$ and $$$j$$$ in tree or number of edges on the simple path between vertices $$$i$$$ and $$$j$$$.
+
+Vasya wants to solve this quiz using $$$\leq 80$$$ operations with the device and guess the tree. Help him!
+
+## Input
+nan
+
+## Output
+nan
+
+## Note
+It is a picture of the tree which encrypt the device from the first test:
+
+It is a table of pairwise distances between vertices in this tree:
+
+- If you make operation where $$$d = [0, 0, 0, 0, 0]$$$, no lamp will switch on, because $$$dist(i, j) > 0$$$ for all $$$i \neq j$$$.
+- If you make operation where $$$d = [1, 1, 2, 0, 2]$$$, all lamps except the lamp connected with the $$$3$$$-rd vertex will switch on. For example, lamp connected with the $$$1$$$-st vertex will switch on, because $$$dist(1, 5) = 1 \leq 2 = d_5$$$.
+- If you make operation where $$$d = [0, 0, 0, 1, 0]$$$, all lamps except lamps connected with the $$$4$$$-th and $$$5$$$-th vertices will switch on.
+- If you make operation where $$$d = [0, 1, 0, 0, 1]$$$, only lamps connected with the $$$1$$$-st and $$$4$$$-th vertices will switch on.
+
+## Examples
+### Example 1
+Input:
+```
+5
+00000
+11011
+11100
+10010
+```
+Output:
+```
+? 0 0 0 0 0
+? 1 1 2 0 2
+? 0 0 0 1 0
+? 0 1 0 0 1
+!
+4 2
+1 5
+3 4
+4 1
+```
+","{""tests_file"": ""datasets/codeforces_tests/1158E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1158E.json"", ""time_limit"": 1.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1023/G,"# Pisces
+
+## Statement
+A group of researchers are studying fish population in a natural system of lakes and rivers. The system contains $$$n$$$ lakes connected by $$$n - 1$$$ rivers. Each river has integer length (in kilometers) and can be traversed in both directions. It is possible to travel between any pair of lakes by traversing the rivers (that is, the network of lakes and rivers form a tree).
+
+There is an unknown number of indistinguishable fish living in the lakes. On day $$$1$$$, fish can be at arbitrary lakes. Fish can travel between lakes by swimming the rivers. Each fish can swim a river $$$l$$$ kilometers long in any direction in $$$l$$$ days. Further, each fish can stay any number of days in any particular lake it visits. No fish ever appear or disappear from the lake system. Each lake can accomodate any number of fish at any time.
+
+The researchers made several observations. The $$$j$$$-th of these observations is ""on day $$$d_j$$$ there were at least $$$f_j$$$ distinct fish in the lake $$$p_j$$$"". Help the researchers in determining the smallest possible total number of fish living in the lake system that doesn't contradict the observations.
+
+## Input
+The first line contains a single integer $$$n$$$ ($$$1 \leq n \leq 10^5$$$) — the number of lakes in the system.
+
+The next $$$n - 1$$$ lines describe the rivers. The $$$i$$$-th of these lines contains three integers $$$u_i$$$, $$$v_i$$$, $$$l_i$$$ ($$$1 \leq u_i, v_i \leq n$$$, $$$u_i \neq v_i$$$, $$$1 \leq l_i \leq 10^3$$$) — $$$1$$$-based indices of lakes connected by the $$$i$$$-th river, and the length of this river.
+
+The next line contains a single integer $$$k$$$ ($$$1 \leq k \leq 10^5$$$) — the number of observations.
+
+The next $$$k$$$ lines describe the observations. The $$$j$$$-th of these lines contains three integers $$$d_j$$$, $$$f_j$$$, $$$p_j$$$ ($$$1 \leq d_j \leq 10^8$$$, $$$1 \leq f_j \leq 10^4$$$, $$$1 \leq p_j \leq n$$$) — the day, the number of fish, and the lake index of the $$$j$$$-th observation. No two observations happen on the same day at the same lake simultaneously.
+
+## Output
+Print one integer — the smallest total number of fish not contradicting the observations.
+
+## Note
+In the first example, there could be one fish swimming through lakes $$$2$$$, $$$1$$$, and $$$4$$$, and the second fish swimming through lakes $$$3$$$, $$$1$$$, and $$$2$$$.
+
+In the second example a single fish can not possibly be part of all observations simultaneously, but two fish swimming $$$2 \to 1 \to 4$$$ and $$$3 \to 1 \to 5$$$ can.
+
+In the third example one fish can move from lake $$$1$$$ to lake $$$5$$$, others staying in their lakes during all time: two fish in lake $$$4$$$, six fish in lake $$$5$$$, one fish in lake $$$3$$$. The system of lakes is shown on the picture.
+
+## Examples
+### Example 1
+Input:
+```
+4
+1 2 1
+1 3 1
+1 4 1
+5
+1 1 2
+1 1 3
+2 2 1
+3 1 4
+3 1 2
+```
+Output:
+```
+2
+```
+
+### Example 2
+Input:
+```
+5
+1 2 1
+1 3 1
+1 4 1
+1 5 1
+4
+1 1 2
+2 1 3
+3 1 4
+4 1 5
+```
+Output:
+```
+2
+```
+
+### Example 3
+Input:
+```
+5
+2 5 1
+5 1 1
+2 4 1
+5 3 3
+6
+5 2 4
+2 1 1
+2 1 3
+2 2 4
+4 7 5
+4 1 2
+```
+Output:
+```
+10
+```
+","{""tests_file"": ""datasets/codeforces_tests/1023G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1023G.json"", ""time_limit"": 5.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+1045/F,"# Shady Lady
+
+## Statement
+Ani and Borna are playing a short game on a two-variable polynomial. It's a special kind of a polynomial: the monomials are fixed, but all of its coefficients are fill-in-the-blanks dashes, e.g. $$$$$$ \_ xy + \_ x^4 y^7 + \_ x^8 y^3 + \ldots $$$$$$
+
+Borna will fill in the blanks with positive integers. He wants the polynomial to be bounded from below, i.e. his goal is to make sure there exists a real number $$$M$$$ such that the value of the polynomial at any point is greater than $$$M$$$.
+
+Ani is mischievous, and wants the polynomial to be unbounded. Along with stealing Borna's heart, she can also steal parts of polynomials. Ani is only a petty kind of thief, though: she can only steal at most one monomial from the polynomial before Borna fills in the blanks.
+
+If Ani and Borna play their only moves optimally, who wins?
+
+## Input
+The first line contains a positive integer $$$N$$$ $$$(2 \leq N \leq 200\, 000)$$$, denoting the number of the terms in the starting special polynomial.
+
+Each of the following $$$N$$$ lines contains a description of a monomial: the $$$k$$$-th line contains two **space**-separated integers $$$a_k$$$ and $$$b_k$$$ $$$(0 \leq a_k, b_k \leq 10^9$$$) which mean the starting polynomial has the term $$$\_ x^{a_k} y^{b_k}$$$. It is guaranteed that for $$$k \neq l$$$, either $$$a_k \neq a_l$$$ or $$$b_k \neq b_l$$$.
+
+## Output
+If Borna can always choose the coefficients such that the resulting polynomial is bounded from below, regardless of what monomial Ani steals, output ""Borna"". Else, output ""Ani"".
+
+You shouldn't output the quotation marks.
+
+## Note
+In the first sample, the initial polynomial is $$$\_xy+ \_x^2 + \_y^2$$$. If Ani steals the $$$\_y^2$$$ term, Borna is left with $$$\_xy+\_x^2$$$. Whatever positive integers are written on the blanks, $$$y \rightarrow -\infty$$$ and $$$x := 1$$$ makes the whole expression go to negative infinity.
+
+In the second sample, the initial polynomial is $$$\_1 + \_x + \_x^2 + \_x^8$$$. One can check that no matter what term Ani steals, Borna can always win.
+
+## Examples
+### Example 1
+Input:
+```
+3
+1 1
+2 0
+0 2
+```
+Output:
+```
+Ani
+```
+
+### Example 2
+Input:
+```
+4
+0 0
+0 1
+0 2
+0 8
+```
+Output:
+```
+Borna
+```
+","{""tests_file"": ""datasets/codeforces_tests/1045F.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1045F.json"", ""time_limit"": 1.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1098/E,"# Fedya the Potter
+
+## Statement
+Fedya loves problems involving data structures. Especially ones about different queries on subsegments. Fedya had a nice array $$$a_1, a_2, \ldots a_n$$$ and a beautiful data structure. This data structure, given $$$l$$$ and $$$r$$$, $$$1 \le l \le r \le n$$$, could find the greatest integer $$$d$$$, such that $$$d$$$ divides each of $$$a_l$$$, $$$a_{l+1}$$$, ..., $$$a_{r}$$$.
+
+Fedya really likes this data structure, so he applied it to every non-empty contiguous subarray of array $$$a$$$, put all answers into the array and sorted it. He called this array $$$b$$$. It's easy to see that array $$$b$$$ contains $$$n(n+1)/2$$$ elements.
+
+After that, Fedya implemented another cool data structure, that allowed him to find sum $$$b_l + b_{l+1} + \ldots + b_r$$$ for given $$$l$$$ and $$$r$$$, $$$1 \le l \le r \le n(n+1)/2$$$. Surely, Fedya applied this data structure to every contiguous subarray of array $$$b$$$, called the result $$$c$$$ and sorted it. Help Fedya find the lower median of array $$$c$$$.
+
+Recall that for a sorted array of length $$$k$$$ the lower median is an element at position $$$\lfloor \frac{k + 1}{2} \rfloor$$$, if elements of the array are enumerated starting from $$$1$$$. For example, the lower median of array $$$(1, 1, 2, 3, 6)$$$ is $$$2$$$, and the lower median of $$$(0, 17, 23, 96)$$$ is $$$17$$$.
+
+## Input
+First line contains a single integer $$$n$$$ — number of elements in array $$$a$$$ ($$$1 \le n \le 50\,000$$$).
+
+Second line contains $$$n$$$ integers $$$a_1, a_2, \ldots, a_n$$$ — elements of the array ($$$1 \le a_i \le 100\,000$$$).
+
+## Output
+Print a single integer — the lower median of array $$$c$$$.
+
+## Note
+In the first sample array $$$b$$$ is equal to $$${3, 3, 6}$$$, then array $$$c$$$ is equal to $$${3, 3, 6, 6, 9, 12}$$$, so the lower median is $$$6$$$.
+
+In the second sample $$$b$$$ is $$${8, 8, 8}$$$, $$$c$$$ is $$${8, 8, 8, 16, 16, 24}$$$, so the lower median is $$$8$$$.
+
+## Examples
+### Example 1
+Input:
+```
+2
+6 3
+```
+Output:
+```
+6
+```
+
+### Example 2
+Input:
+```
+2
+8 8
+```
+Output:
+```
+8
+```
+
+### Example 3
+Input:
+```
+5
+19 16 2 12 15
+```
+Output:
+```
+12
+```
+","{""tests_file"": ""datasets/codeforces_tests/1098E.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1098E.json"", ""time_limit"": 2.5, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+1033/G,"# Chip Game
+
+## Statement
+Alice and Bob decided to play one ultimate game. They have $$$n$$$ piles, the $$$i$$$-th pile initially contain $$$v_i$$$ chips. Alice selects a positive integer $$$a$$$ from interval $$$[1, m]$$$, and Bob selects a number $$$b$$$ the same way.
+
+Then the game starts. In her turn, Alice can select any pile containing at least $$$a$$$ chips, and remove exactly $$$a$$$ chips from it. Similarly, in his turn, Bob can choose any pile with at least $$$b$$$ chips, and remove exactly $$$b$$$ chips from it. If a player cannot make a move, he or she loses.
+
+If both players play optimally, the outcome ultimately depends on the choice of $$$a$$$ and $$$b$$$, and on the starting player. Consider a fixed pair $$$(a,b)$$$. There are four types of games:
+
+- Alice wins, regardless of who starts.
+- Bob wins, regardless of who starts.
+- If Alice starts, she wins. If Bob starts, he wins. We say that the first player wins.
+- If Alice starts, Bob wins. If Bob starts, Alice wins. We say that the second player wins.
+
+Among all choices of $$$a$$$ and $$$b$$$ (i.e. for each pair $$$(a, b)$$$ such that $$$1\leq a, b\leq m$$$), determine how many games are won by Alice (regardless of who starts), how many are won by Bob (regardless of who starts), how many are won by the first player, and how many are won by the second player.
+
+## Input
+The first line contains two integers $$$n$$$ and $$$m$$$ ($$$1 \leq n \leq 100, 1 \leq m \leq 10^5$$$) — the number of piles, and the upper bound on the number of chips allowed to be taken in one turn, respectively.
+
+The second line contains $$$n$$$ integers $$$v_1, v_2, \dots, v_n$$$ ($$$1 \leq v_i \leq 10^{18}$$$) — the starting number of chips in each pile.
+
+## Output
+Print a single line containing four integers $$$w_a$$$, $$$w_b$$$, $$$w_f$$$, $$$w_s$$$ — the number of games won by Alice, Bob, the first player, the second player, respectively.
+
+## Note
+In the first sample, there are a total of four choices for the tuple $$$(a,b)$$$.
+
+- $$$a = b = 1$$$: It does not matter from which pile the chips are removed — there are $$$9$$$ turns to be made, and the first player also makes the last, and hence he wins.
+- $$$a = b = 2$$$: The second player may win by always selecting the same pile as the first before there are $$$0$$$ and $$$1$$$ chips in the piles. Since it is impossible to remove $$$2$$$ chips from any of them, the first player loses.
+- $$$a = 1$$$ and $$$b = 2$$$:   Suppose Alice starts. She can win by removing a single chip from the pile with $$$5$$$ chips and then copying Bob's decision. After the next four turns, the game ends with $$$1$$$ chip in each pile and Bob unable to make a move.  Suppose Bob starts. If he removes two chips from second pile, Alice counters by removing a chip from the first pile. From then on, she can always copy Bob's decision and win. If Bob removes two chips from the first pile in his first turn, Alice can also remove one. As the first pile only has one chip left, Bob is forced to remove two chips from the second pile, leaving $$$3$$$. Regardless of what Alice does, she wins.  Hence, Alice wins no matter who starts.
+- $$$a = 2$$$ and $$$b = 1$$$: This is symmetric with the previous case — hence Bob always wins.
+
+In the second sample, a lot of games, e.g. $$$a = 7$$$ and $$$b = 6$$$, end without anybody being able to remove single chip — which counts as a win for the second player. The games won for the first player are $$$(1, 1)$$$, $$$(1, 4)$$$, $$$(2, 3)$$$, $$$(3, 2)$$$, $$$(4, 1)$$$, and $$$(5, 5)$$$.
+
+## Examples
+### Example 1
+Input:
+```
+2 2
+4 5
+```
+Output:
+```
+1 1 1 1
+```
+
+### Example 2
+Input:
+```
+2 20
+4 5
+```
+Output:
+```
+82 82 6 230
+```
+","{""tests_file"": ""datasets/codeforces_tests/1033G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/1033G.json"", ""time_limit"": 5.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+2029/H,"# Message Spread
+
+## Statement
+Given is an undirected graph with $$$n$$$ vertices and $$$m$$$ edges. Each edge connects two vertices $$$(u, v)$$$ and has a probability of $$$\frac{p}{q}$$$ of appearing each day.
+
+Initially, vertex $$$1$$$ has a message. At the end of the day, a vertex has a message if and only if itself or at least one of the vertices adjacent to it had the message the day before. Note that each day, each edge chooses its appearance independently.
+
+Calculate the expected number of days before all the vertices have the message, modulo $$$998\,244\,353$$$.
+
+## Input
+The first line contains two integers $$$n$$$ and $$$m$$$ ($$$1\leq n\leq 21$$$, $$$n-1\leq m\leq\frac{n(n-1)}{2}$$$).
+
+Then $$$m$$$ lines follow, each containing four integers $$$u$$$, $$$v$$$, $$$p$$$, and $$$q$$$ ($$$1\leq u\neq v\leq n$$$, $$$1\leq p<q<998\,244\,353$$$, $$$\gcd(p,q)=1$$$) — there is an undirected edge between $$$u$$$ and $$$v$$$, and it has a probability of appearance of $$$\frac{p}{q}$$$ each day.
+
+It is guaranteed that there are no self-loops or multiple-edges in the graph and that the graph is connected if all of the edges appear.
+
+Additional constraint in the input: Let $$$g_{i,j}$$$ be the probability of appearance of the edge between $$$i$$$ and $$$j$$$ ($$$g_{i,j}=0$$$ if there is no edge between $$$i$$$ and $$$j$$$). It is guaranteed that for any $$$S\subseteq\{1,2,\ldots,n\}$$$ ($$$|S|\ge 1$$$), $$$$$$ \prod_{i\in S}\left(\prod_{j\in\{1,2,\ldots,n\}\setminus S}(1-g_{i,j})\right)\not\equiv1\pmod{998\,244\,353}. $$$$$$
+
+## Output
+Print a single integer in the only line of the output — the expected number of days, modulo $$$998\,244\,353$$$.
+
+Formally, let $$$M = 998\,244\,353$$$. It can be shown that the exact answer can be expressed as an irreducible fraction $$$\frac{p}{q}$$$, where $$$p$$$ and $$$q$$$ are integers and $$$q \not \equiv 0 \pmod{M}$$$. Output the integer equal to $$$p \cdot q^{-1} \bmod M$$$. In other words, output such an integer $$$x$$$ that $$$0 \le x < M$$$ and $$$x \cdot q \equiv p \pmod{M}$$$.
+
+## Note
+In the first test, the answer is equal to the expected number of days before the only edge in the graph first appears, and that is $$$\frac{1}{0.1}=10$$$.
+
+In the second test, the answer is equal to $$$\frac{20}{9}$$$ before it is taken modulo $$$998\,244\,353$$$.
+
+In the third test, the only vertex already has the message, so the answer is $$$0$$$.
+
+## Examples
+### Example 1
+Input:
+```
+2 1
+1 2 1 10
+```
+Output:
+```
+10
+```
+
+### Example 2
+Input:
+```
+3 3
+1 2 1 2
+1 3 1 2
+2 3 1 2
+```
+Output:
+```
+887328316
+```
+
+### Example 3
+Input:
+```
+1 0
+```
+Output:
+```
+0
+```
+
+### Example 4
+Input:
+```
+5 8
+1 2 1 11
+1 3 2 11
+1 4 3 11
+1 5 4 11
+2 4 5 11
+2 5 6 11
+3 4 7 11
+4 5 8 11
+```
+Output:
+```
+469993557
+```
+
+### Example 5
+Input:
+```
+21 22
+1 2 3 4
+2 3 4 5
+3 4 5 6
+5 6 7 8
+6 7 8 9
+7 8 9 10
+8 9 2 3
+9 10 3 4
+10 11 4 5
+11 12 5 6
+12 13 6 7
+13 14 7 8
+14 15 8 9
+15 16 9 10
+16 17 2 3
+17 18 3 4
+18 19 4 5
+19 20 5 6
+20 21 6 7
+1 10 100 1001
+15 4 147 220
+4 11 1 998244352
+```
+Output:
+```
+299529765
+```
+","{""tests_file"": ""datasets/codeforces_tests/2029H.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2029H.json"", ""time_limit"": 12.0, ""memory_limit"": 1024.0, ""input_mode"": ""stdio""}"
+2062/H,"# Galaxy Generator
+
+## Statement
+In a two-dimensional universe, a star can be represented by a point $$$(x,y)$$$ on a two-dimensional plane. Two stars are directly connected if and only if their $$$x$$$ or $$$y$$$ coordinates are the same, and there are no other stars on the line segment between them. Define a galaxy as a connected component composed of stars connected directly or indirectly (through other stars).
+
+For a set of stars, its value is defined as the minimum number of galaxies that can be obtained after performing the following operation for any (possibly, zero) times: in each operation, you can select a point $$$(x,y)$$$ without stars. If a star can be directly connected to at least $$$3$$$ stars after creating it here, then you create a star here.
+
+You are given a $$$n\times n$$$ matrix $$$a$$$ consisting of $$$0$$$ and $$$1$$$ describing a set $$$S$$$ of stars. There is a star at $$$(x,y)$$$ if and only if $$$a_{x,y}=1$$$. Calculate the sum, modulo $$$10^9 + 7$$$, of the values of all non-empty subsets of $$$S$$$.
+
+## Input
+The first line of input contains a single integer $$$t$$$ ($$$1 \leq t \leq 100$$$) — the number of test cases.
+
+For each test case, the first line contains a single integer $$$n$$$ ($$$1 \leq n \leq 14$$$) — the size of matrix $$$a$$$.
+
+Then $$$n$$$ lines follow; the $$$i$$$-th line contains a string $$$a_i$$$ of length $$$n$$$ — the $$$i$$$-th row of matrix $$$a$$$.
+
+It is guaranteed that the sum of $$$2^n$$$ over all test cases does not exceed $$$2^{14}$$$.
+
+## Output
+For each test case, output the sum, modulo $$$10^9 + 7$$$, of the values of all non-empty subsets of $$$S$$$.
+
+## Note
+In the first test case, $$$S$$$ is empty. $$$S$$$ has no non-empty subsets. So the answer is $$$0$$$.
+
+In the second test case, $$$S = \{(1,2),(2,1)\}$$$. $$$S$$$ has $$$3$$$ non-empty subsets.
+
+- $$$\{(1,2)\}$$$ and $$$\{(2,1)\}$$$ — there is only one star in the set, forming $$$1$$$ galaxy.
+- $$$\{(1,2),(2,1)\}$$$ — two stars in the set are not connected, forming $$$2$$$ galaxies.
+
+So the answer is $$$1+1+2=4$$$.
+
+In the third test case, $$$S = \{(1,2),(3,1),(3,3)\}$$$. $$$S$$$ has $$$7$$$ non-empty subsets.
+
+- $$$\{(1,2)\}$$$, $$$\{(3,1)\}$$$, and $$$\{(3,3)\}$$$ — there is only one star in the set, forming $$$1$$$ galaxy.
+- $$$\{(1,2),(3,1)\}$$$ and $$$\{(1,2),(3,3)\}$$$ — two stars in the set are not connected, forming $$$2$$$ galaxies.
+- $$$\{(3,1),(3,3)\}$$$ — two stars in the set are connected, forming $$$1$$$ galaxy.
+- $$$\{(1,2),(3,1),(3,3)\}$$$ — initially, star $$$(1,2)$$$ is not in the galaxy formed by $$$(3,1)$$$ and $$$(3,3)$$$. You can make an operation creating a star at $$$(3,2)$$$ connecting to these three stars, forming $$$1$$$ galaxy.
+
+So the answer is $$$1+1+1+2+2+1+1=9$$$.
+
+## Examples
+### Example 1
+Input:
+```
+8
+1
+0
+2
+01
+10
+3
+010
+000
+101
+4
+0110
+1001
+1001
+0110
+11
+11111110111
+10000010010
+10111010011
+10111010011
+10111010001
+10000010000
+11111110101
+00000000111
+11011010011
+10010101100
+11101010100
+11
+11011111110
+10010000010
+00010111010
+10010111010
+01010111010
+11010000010
+01011111110
+11000000000
+01010000010
+01000111100
+00000001010
+11
+11010101001
+11001010100
+00000000110
+11111110010
+10000010010
+10111010110
+10111010111
+10111010010
+10000010110
+11111110100
+00000000000
+3
+111
+100
+111
+```
+Output:
+```
+0
+4
+9
+355
+593092633
+438667113
+922743932
+155
+```
+","{""tests_file"": ""datasets/codeforces_tests/2062H.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2062H.json"", ""time_limit"": 4.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+2046/E2,"# Cheops and a Contest (Hard Version)
+
+## Statement
+This is the hard version of the problem. The difference between the versions is that in this version, $$$m$$$ is arbitrary. You can hack only if you solved all versions of this problem.
+
+There is a problem-solving competition in Ancient Egypt with $$$n$$$ participants, numbered from $$$1$$$ to $$$n$$$. Each participant comes from a certain city; the cities are numbered from $$$1$$$ to $$$m$$$. There is at least one participant from each city.
+
+The $$$i$$$-th participant has strength $$$a_i$$$, specialization $$$s_i$$$, and wisdom $$$b_i$$$, so that $$$b_i \ge a_i$$$. Each problem in the competition will have a difficulty $$$d$$$ and a unique topic $$$t$$$. The $$$i$$$-th participant will solve the problem if
+
+- $$$a_i \ge d$$$, i.e., their strength is not less than the problem's difficulty, or
+- $$$s_i = t$$$, and $$$b_i \ge d$$$, i.e., their specialization matches the problem's topic, and their wisdom is not less than the problem's difficulty.
+
+Cheops wants to choose the problems in such a way that each participant from city $$$i$$$ will solve strictly more problems than each participant from city $$$j$$$, for all $$$i < j$$$.
+
+Please find a set of at most $$$5n$$$ problems, where the topics of all problems are distinct, so that Cheops' will is satisfied, or state that it is impossible.
+
+## Input
+Each test contains multiple test cases. The first line contains the number of test cases $$$T$$$ ($$$1 \le T \le 10^4$$$). The description of the test cases follows.
+
+The first line of each test case contains two integers $$$n$$$, $$$m$$$ ($$$2 \le m \le n \le 3 \cdot {10}^5$$$) — the number of participants and the number of cities.
+
+The following $$$n$$$ lines describe the participants. The $$$i$$$-th line contains three integers —$$$a_i$$$, $$$b_i$$$, $$$s_i$$$ ($$$0 \le a_i, b_i, s_i \le {10}^9$$$, $$$a_i \le b_i$$$) — strength, wisdom, and specialization of the $$$i$$$-th participant, respectively.
+
+The next $$$m$$$ lines describe the cities. In the $$$i$$$-th line, the first number is an integer $$$k_i$$$ ($$$1 \le k_i \le n$$$) — the number of participants from the $$$i$$$-th city. It is followed by $$$k_i$$$ integers $$$q_{i, 1}, q_{i, 2}, \ldots, q_{i, k_i}$$$ — ($$$1 \le q_{i, j} \le n$$$, $$$1 \le j \le k_i$$$) — the indices of the participants from this city. It is guaranteed that each participant is mentioned exactly once.
+
+It is guaranteed that the sum of $$$n$$$ over all test cases does not exceed $$$3 \cdot 10^5$$$.
+
+## Output
+For each test case, if there exists a set of problems that satisfies Cheops' conditions, then in the first line output a single integer $$$p$$$ ($$$1 \le p \le 5n$$$) — the number of problems in your solution.
+
+Then output $$$p$$$ lines, each containing two integers $$$d$$$ and $$$t$$$ ($$$0 \le d, t \le {10}^9$$$) — the difficulty and topic of the respective problem. The topics must be distinct.
+
+If there is no set of problems that meets Cheops' wishes, print $$$-1$$$ instead.
+
+## Note
+nan
+
+## Examples
+### Example 1
+Input:
+```
+2
+5 2
+5 7 1
+6 7 2
+3 9 2
+5 10 3
+4 4 1
+2 1 2
+3 3 4 5
+2 2
+1 2 1
+1 2 1
+1 2
+1 1
+```
+Output:
+```
+7
+6 4
+6 5
+5 6
+5 7
+4 8
+4 9
+7 1
+-1
+```
+","{""tests_file"": ""datasets/codeforces_tests/2046E2.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2046E2.json"", ""time_limit"": 4.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+2039/G,"# Shohag Loves Pebae
+
+## Statement
+Shohag has a tree with $$$n$$$ nodes.
+
+Pebae has an integer $$$m$$$. She wants to assign each node a value — an integer from $$$1$$$ to $$$m$$$. So she asks Shohag to count the number, modulo $$$998\,244\,353$$$, of assignments such that following conditions are satisfied:
+
+- For each pair $$$1 \le u \lt v \le n$$$, the least common multiple (LCM) of the values of the nodes in the unique simple path from $$$u$$$ to $$$v$$$ is not divisible by the number of nodes in the path.
+- The greatest common divisor (GCD) of the values of all nodes from $$$1$$$ to $$$n$$$ is $$$1$$$.
+
+But this problem is too hard for Shohag to solve. As Shohag loves Pebae, he has to solve the problem. Please save Shohag!
+
+## Input
+The first line contains two space-separated integers $$$n$$$ and $$$m$$$ ($$$2 \le n \le 10^6$$$, $$$1 \le m \le 10^{9}$$$).
+
+Each of the next $$$n - 1$$$ lines contains two integers $$$u$$$ and $$$v$$$ ($$$1 \le u, v \le n$$$) indicating there is an edge between vertices $$$u$$$ and $$$v$$$. It is guaranteed that the given edges form a tree.
+
+## Output
+Print a single integer — the number of valid ways to assign each vertex a value, modulo $$$998\,244\,353$$$.
+
+## Note
+In the first test case, the valid assignments are $$$[1, 1, 1, 1, 1, 1]$$$ and $$$[1, 1, 1, 1, 1, 5]$$$.
+
+In the second test case, the valid assignments are $$$[1, 1]$$$, $$$[1, 3]$$$, $$$[1, 5]$$$, $$$[3, 1]$$$, $$$[3, 5]$$$, $$$[5, 1]$$$ and $$$[5, 3]$$$.
+
+## Examples
+### Example 1
+Input:
+```
+6 6
+1 2
+2 3
+3 4
+4 5
+3 6
+```
+Output:
+```
+2
+```
+
+### Example 2
+Input:
+```
+2 5
+1 2
+```
+Output:
+```
+7
+```
+
+### Example 3
+Input:
+```
+12 69
+3 5
+1 4
+2 3
+4 5
+5 6
+8 9
+7 3
+4 8
+9 10
+1 11
+12 1
+```
+Output:
+```
+444144548
+```
+","{""tests_file"": ""datasets/codeforces_tests/2039G.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2039G.json"", ""time_limit"": 5.0, ""memory_limit"": 768.0, ""input_mode"": ""stdio""}"
+2045/D,"# Aquatic Dragon
+
+## Statement
+You live in an archipelago consisting of $$$N$$$ islands (numbered from $$$1$$$ to $$$N$$$) laid out in a single line. Island $$$i$$$ is adjacent to island $$$i+1$$$, for $$$1 \leq i < N$$$. Between adjacent islands $$$i$$$ and $$$i+1$$$, there is a pair of one-directional underwater tunnels: one that allows you to walk from island $$$i$$$ to island $$$i+1$$$ and one for the opposite direction. Each tunnel can only be traversed at most once.
+
+You also have a dragon with you. It has a stamina represented by a non-negative integer. The stamina is required for the dragon to perform its abilities: swim and fly. Initially, its stamina is $$$0$$$.
+
+Your dragon's stamina can be increased as follows. There is a magical shrine on each island $$$i$$$ that will immediately increase your dragon's stamina by $$$P_i$$$ (regardless the position of the dragon) when you visit island $$$i$$$ for the first time. This event takes no time.
+
+When you are on an island, there are $$$3$$$ moves that you can perform.
+
+- Swim with your dragon to an adjacent island if your dragon and you are on the same island. You can perform if your dragon's stamina is at least $$$D$$$. This move reduces your dragon's stamina by $$$D$$$, and it takes $$$T_s$$$ seconds to perform.
+- Fly with your dragon to an adjacent island if your dragon and you are on the same island. You can perform this move if your dragon's stamina is not $$$0$$$. This move sets your dragon's stamina to $$$0$$$, and it takes $$$T_f$$$ seconds to perform.
+- Walk alone without your dragon to an adjacent island through the underwater tunnel. This move takes $$$T_w$$$ seconds to perform. Once you walk through this tunnel, it cannot be used again.
+
+Note that both swimming and flying do not use tunnels.
+
+Your dragon and you are currently on island $$$1$$$. Your mission is to go to island $$$N$$$ with your dragon. Determine the minimum possible time to complete your mission.
+
+## Input
+The first line consists of five integers $$$N$$$ $$$D$$$ $$$T_s$$$ $$$T_f$$$ $$$T_w$$$ ($$$2 \leq N \leq 200\,000; 1 \leq D, T_s, T_f, T_w \leq 200\,000$$$).
+
+The second line consists of $$$N$$$ integers $$$P_i$$$ ($$$1 \leq P_i \leq 200\,000)$$$.
+
+## Output
+Output an integer in a single line representing the minimum possible time to go to island $$$N$$$ with your dragon.
+
+## Note
+Explanation for the sample input/output #1
+
+The following sequence of events will complete your mission in the minimum time.
+
+1. The shrine on island $$$1$$$ increases your dragon's stamina to $$$1$$$.
+2. Fly with your dragon to island $$$2$$$. The shrine on island $$$2$$$ increases your dragon's stamina to $$$2$$$.
+3. Walk alone to island $$$3$$$. The shrine on island $$$3$$$ increases your dragon's stamina to $$$6$$$.
+4. Walk alone to island $$$4$$$. The shrine on island $$$4$$$ increases your dragon's stamina to $$$8$$$.
+5. Walk alone to island $$$3$$$.
+6. Walk alone to island $$$2$$$.
+7. Swim with your dragon to island $$$3$$$. Your dragon's stamina is now $$$4$$$.
+8. Swim with your dragon to island $$$4$$$. Your dragon's stamina is now $$$0$$$.
+9. Walk alone to island $$$5$$$. The shrine on island $$$5$$$ increases your dragon's stamina to $$$1$$$.
+10. Walk alone to island $$$4$$$.
+11. Fly with your dragon to island $$$5$$$.
+
+Explanation for the sample input/output #2
+
+Repeat the following process for $$$1 \leq i < 5$$$: The shrine on island $$$i$$$ increases your dragon's stamina, then use the stamina to fly with your dragon to island $$$i+1$$$.
+
+## Examples
+### Example 1
+Input:
+```
+5 4 2 9 1
+1 2 4 2 1
+```
+Output:
+```
+28
+```
+
+### Example 2
+Input:
+```
+5 4 2 1 1
+1 2 4 2 1
+```
+Output:
+```
+4
+```
+
+### Example 3
+Input:
+```
+3 4 2 10 1
+3 1 2
+```
+Output:
+```
+16
+```
+","{""tests_file"": ""datasets/codeforces_tests/2045D.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2045D.json"", ""time_limit"": 3.0, ""memory_limit"": 1024.0, ""input_mode"": ""stdio""}"
+2006/F,"# Dora's Paint
+
+## Statement
+Sadly, Dora poured the paint when painting the class mural. Dora considers the mural as the matrix $$$b$$$ of size $$$n \times n$$$. Initially, $$$b_{i,j} = 0$$$ for all $$$1 \le i, j \le n$$$.
+
+Dora has only two brushes which have two different colors. In one operation, she can paint the matrix with one of two brushes:
+
+- The first brush has color $$$1$$$ on it and can paint one column of the matrix. That is, Dora chooses $$$1 \leq j \leq n$$$ and makes $$$b_{i,j} := 1$$$ for all $$$1 \leq i \leq n$$$;
+- The second brush has color $$$2$$$ on it and can paint one row of the matrix. That is, Dora chooses $$$1 \leq i \leq n$$$ and makes $$$b_{i,j} := 2$$$ for all $$$1 \leq j \leq n$$$.
+
+Dora paints the matrix so that the resulting matrix $$$b$$$ contains only $$$1$$$ and $$$2$$$.
+
+For a matrix $$$b$$$, let $$$f(b)$$$ denote the minimum number of operations needed to turn the initial matrix (containing only $$$0$$$) into $$$b$$$. The beauty of a matrix $$$b$$$ is the number of ways to paint the initial matrix in exactly $$$f(b)$$$ operations to turn it into $$$b$$$. If there's no way to turn the initial matrix into $$$b$$$, the beauty of $$$b$$$ is $$$0$$$.
+
+However, Dora made a uniformly random mistake; there's exactly one element different in the matrix $$$a$$$ given to you from the real matrix $$$b$$$. That is, there is exactly one pair $$$(i, j)$$$ such that $$$a_{i, j} = 3 - b_{i, j}$$$.
+
+Please help Dora compute the expected beauty of the real matrix $$$b$$$ modulo $$$998\,244\,353$$$ (all possible $$$n^2$$$ mistakes have equal probability).
+
+Since the size of the matrix is too large, Dora will only tell you the positions of $$$m$$$ elements of color $$$1$$$, and the remaining $$$n^2-m$$$ elements have color $$$2$$$.
+
+## Input
+Each test consists of multiple test cases. The first line contains a single integer $$$t$$$ ($$$1 \leq t \leq 10^4$$$) — the number of test cases. The description of the test cases follows.
+
+The first line of each test case contains two integers $$$n$$$ and $$$m$$$ ($$$2 \leq n \leq 2 \cdot 10^5$$$, $$$0 \leq m \leq \min(10^6, n^2)$$$) — the size of the matrix and the number of elements of color $$$1$$$.
+
+Then $$$m$$$ lines follow, each containing two positive integers $$$x_i$$$ and $$$y_i$$$ ($$$1 \leq x_i, y_i \leq n$$$) — denoting that $$$a_{x_i, y_i} = 1$$$.
+
+It is guaranteed that if $$$i \neq j$$$, then $$$(x_i, y_i) \neq (x_j, y_j)$$$.
+
+It is also guaranteed that the sum of $$$n$$$ over all test cases does not exceed $$$4\cdot10^5$$$, and the sum of $$$m$$$ over all test cases does not exceed $$$10^6$$$.
+
+## Output
+For each test case, output a single integer — the expected beauty of the real matrix $$$b$$$, modulo $$$998\,244\,353$$$.
+
+## Note
+In the first test case, the matrix $$$a = \left[\begin{matrix}1&1\\2&2\end{matrix}\right]$$$. Let's consider changing the element $$$(1,1)$$$ to calculate the answer.
+
+It can be proved that the minimum steps to paint the initial matrix into $$$\left[\begin{matrix}2&1\\2&2\end{matrix}\right]$$$ is $$$3$$$. We can first paint the first row into color $$$2$$$, then paint the second column into color $$$1$$$, and finally paint the second row into color $$$2$$$. The process is listed below:
+
+$$$$$$\left[\begin{matrix}0&0\\0&0\end{matrix}\right]\Rightarrow\left[\begin{matrix}2&2\\0&0\end{matrix}\right]\Rightarrow\left[\begin{matrix}2&1\\0&1\end{matrix}\right]\Rightarrow\left[\begin{matrix}2&1\\2&2\end{matrix}\right]$$$$$$
+
+It can be proved that this is the only way to paint the matrix in $$$3$$$ steps. So the beauty of the matrix $$$\left[\begin{matrix}2&1\\2&2\end{matrix}\right]$$$ is $$$1$$$. Similarly, if any other element of the matrix is changed, the beauty is always $$$1$$$, so the expected beauty of the real matrix $$$b$$$ is $$$1$$$.
+
+In the second test case, the matrix $$$a = \left[\begin{matrix}1&2\\2&2\end{matrix}\right]$$$. Let's consider changing the element $$$(2, 2)$$$ to calculate the answer.
+
+It can be proven that it's impossible to paint the initial matrix into $$$\left[\begin{matrix}1&2\\2&1\end{matrix}\right]$$$, so its beauty is $$$0$$$. If any other element of the matrix is changed, the beauty is always $$$2$$$, so the expected beauty is $$$\frac{0 + 2 + 2 + 2}{4} = \frac{6}{4} \equiv 499\,122\,178 \pmod {998\,244\,353}$$$.
+
+## Examples
+### Example 1
+Input:
+```
+7
+2 2
+1 1
+1 2
+2 1
+1 1
+3 2
+1 1
+3 3
+6 0
+5 10
+1 1
+1 2
+1 3
+2 1
+2 3
+5 1
+5 2
+5 3
+5 4
+5 5
+3 5
+1 1
+1 3
+2 2
+3 1
+3 3
+4 3
+1 1
+2 3
+2 4
+```
+Output:
+```
+1
+499122178
+665496236
+120
+79859554
+776412275
+1
+```
+","{""tests_file"": ""datasets/codeforces_tests/2006F.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2006F.json"", ""time_limit"": 3.0, ""memory_limit"": 512.0, ""input_mode"": ""stdio""}"
+2034/G1,"# Simurgh's Watch (Easy Version)
+
+## Statement
+The only difference between the two versions of the problem is whether overlaps are considered at all points or only at integer points.
+
+The legendary Simurgh, a mythical bird, is responsible for keeping watch over vast lands, and for this purpose, she has enlisted $$$n$$$ vigilant warriors. Each warrior is alert during a specific time segment $$$[l_i, r_i]$$$, where $$$l_i$$$ is the start time (included) and $$$r_i$$$ is the end time (included), both positive integers.
+
+One of Simurgh's trusted advisors, Zal, is concerned that if multiple warriors are stationed at the same time and all wear the same color, the distinction between them might be lost, causing confusion in the watch. To prevent this, whenever multiple warriors are on guard at the same moment (which can be non-integer), there must be at least one color which is worn by exactly one warrior.
+
+So the task is to determine the minimum number of colors required and assign a color $$$c_i$$$ to each warrior's segment $$$[l_i, r_i]$$$ such that, for every (real) time $$$t$$$ contained in at least one segment, there exists one color which belongs to exactly one segment containing $$$t$$$.
+
+## Input
+The first line contains a single integer $$$t$$$ ($$$1 \leq t \leq 10^4$$$) — the number of test cases.
+
+For each test case:
+
+- The first line contains an integer $$$n$$$ ($$$1 \leq n \leq 2 \cdot 10^5$$$) — the number of warriors stationed by Simurgh.
+- The next $$$n$$$ lines each contain two integers $$$l_i$$$ and $$$r_i$$$ ($$$1 \leq l_i \leq r_i \leq 10^9$$$) — the start and end times of the warrior's watch segment.
+
+The sum of $$$n$$$ across all test cases does not exceed $$$2 \cdot 10^5$$$.
+
+## Output
+For each test case:
+
+- Output the minimum number of colors $$$k$$$ needed.
+- Then, output a line of $$$n$$$ integers $$$c_i$$$ ($$$1 \leq c_i \leq k$$$), where each $$$c_i$$$ is the color assigned to the $$$i$$$-th warrior.
+
+## Note
+We can represent each warrior's watch segment as an interval on the X-axis;
+
+In test case 1, we have two independent intervals, which can be colored with the same color.
+
+In test case 2, point 2 is common to two intervals, meaning we cannot color them with the same color.
+
+In test case 3, the intervals can be colored as shown below (intervals are colored with the selected color; areas are colored if this color occurs exactly once at this point in time):
+
+In test case 4, the intervals can be colored as shown below:
+
+In test case 5, the intervals can be colored as shown below. The image on the right demonstrates an example of incorrect coloring for this test case; there is no unique color at the moment $$$5.5$$$:
+
+## Examples
+### Example 1
+Input:
+```
+5
+2
+1 2
+3 4
+2
+1 2
+2 3
+3
+1 4
+2 5
+3 6
+5
+1 4
+2 8
+3 7
+5 10
+6 9
+5
+1 5
+2 6
+3 7
+4 7
+6 7
+```
+Output:
+```
+1
+1 1
+2
+1 2
+2
+1 2 1
+3
+2 3 1 2 1
+3
+2 1 3 1 1
+```
+","{""tests_file"": ""datasets/codeforces_tests/2034G1.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2034G1.json"", ""time_limit"": 2.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"
+2034/G2,"# Simurgh's Watch (Hard Version)
+
+## Statement
+The only difference between the two versions of the problem is whether overlaps are considered at all points or only at integer points.
+
+The legendary Simurgh, a mythical bird, is responsible for keeping watch over vast lands, and for this purpose, she has enlisted $$$n$$$ vigilant warriors. Each warrior is alert during a specific time segment $$$[l_i, r_i]$$$, where $$$l_i$$$ is the start time (included) and $$$r_i$$$ is the end time (included), both positive integers.
+
+One of Simurgh's trusted advisors, Zal, is concerned that if multiple warriors are stationed at the same time and all wear the same color, the distinction between them might be lost, causing confusion in the watch. To prevent this, whenever multiple warriors are on guard at the same integer moment, there must be at least one color which is worn by exactly one warrior.
+
+So the task is to determine the minimum number of colors required and assign a color $$$c_i$$$ to each warrior's segment $$$[l_i, r_i]$$$ such that, for every (integer) time $$$t$$$ contained in at least one segment, there exists one color which belongs to exactly one segment containing $$$t$$$.
+
+## Input
+The first line contains a single integer $$$t$$$ ($$$1 \leq t \leq 10^4$$$) — the number of test cases.
+
+For each test case:
+
+- The first line contains an integer $$$n$$$ ($$$1 \leq n \leq 2 \cdot 10^5$$$) — the number of warriors stationed by Simurgh.
+- The next $$$n$$$ lines each contain two integers $$$l_i$$$ and $$$r_i$$$ ($$$1 \leq l_i \leq r_i \leq 10^9$$$) — the start and end times of the warrior's watch segment.
+
+The sum of $$$n$$$ across all test cases does not exceed $$$2 \cdot 10^5$$$.
+
+## Output
+For each test case:
+
+- Output the minimum number of colors $$$k$$$ needed.
+- Then, output a line of $$$n$$$ integers $$$c_i$$$ ($$$1 \leq c_i \leq k$$$), where each $$$c_i$$$ is the color assigned to the $$$i$$$-th warrior.
+
+## Note
+We can represent each warrior's watch segment as an interval on the X-axis;
+
+In test case 1, the intervals can be colored as shown below (intervals are colored with the selected color; areas are colored if this color occurs exactly once at this point in time):
+
+In test case 2, the intervals can be colored as shown below:
+
+In test case 3, the intervals can be colored as shown below:
+
+## Examples
+### Example 1
+Input:
+```
+3
+5
+1 4
+2 8
+3 7
+5 10
+6 9
+5
+1 5
+2 6
+3 7
+4 7
+6 7
+5
+4 9
+8 17
+2 15
+12 19
+6 13
+```
+Output:
+```
+2
+1 2 2 1 2
+2
+1 2 2 2 1
+3
+1 1 2 3 1
+```
+","{""tests_file"": ""datasets/codeforces_tests/2034G2.json"", ""gen_tests_file"": ""datasets/codeforces_tests_generated/2034G2.json"", ""time_limit"": 2.0, ""memory_limit"": 256.0, ""input_mode"": ""stdio""}"

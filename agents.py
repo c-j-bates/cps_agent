@@ -17,8 +17,13 @@ Other baselines retain their original linear-conversation approach:
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re as _re
+import shutil
+import subprocess
+import tempfile
 import yaml
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
@@ -91,11 +96,155 @@ def _is_checker_function(solution: str) -> bool:
     return isinstance(solution, str) and solution.strip().startswith("def check(")
 
 
+def _is_codeforces_blob(solution_spec: str) -> bool:
+    """True if the solution field is a codeforces test-blob: JSON with inline
+    'tests' (a list) or a 'tests_file' sidecar reference (a string)."""
+    if not isinstance(solution_spec, str):
+        return False
+    s = solution_spec.strip()
+    if not (s.startswith("{") and ('"tests"' in s or '"tests_file"' in s)):
+        return False
+    try:
+        d = json.loads(s)
+        return isinstance(d, dict) and (
+            isinstance(d.get("tests"), list) or isinstance(d.get("tests_file"), str)
+        )
+    except Exception:
+        return False
+
+
+_CPP_BLOCK_RE = _re.compile(r"```(?:cpp|c\+\+|c)?\s*\n(.*?)```", _re.DOTALL)
+
+
+def _extract_cpp(solution: str) -> str | None:
+    """Pull the first ```cpp ... ``` block from a solution; fall back to the
+    whole text if it looks like C++ source."""
+    if not solution:
+        return None
+    m = _CPP_BLOCK_RE.search(solution)
+    if m:
+        return m.group(1).strip()
+    s = solution.strip()
+    if s.startswith("#include") or "int main" in s[:400]:
+        return s
+    return None
+
+
+def _resolve_sidecar(path: str) -> str | None:
+    """Resolve a sidecar test-file path: try as given (cwd-relative / absolute),
+    else relative to this module's directory. Returns the existing path or None."""
+    if not path:
+        return None
+    if os.path.isfile(path):
+        return path
+    alt = os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
+    return alt if os.path.isfile(alt) else None
+
+
+def _make_codeforces_checker(blob_str: str):
+    """Build a checker that compiles the solver's C++ and runs it against the
+    held-out tests for the problem.
+
+    Blob fields (any of): inline tests=[{input,output}] + checker; OR a sidecar
+    reference tests_file (committed official tests) and optional gen_tests_file
+    (gitignored, regenerable generated tests appended for stronger grading) — each
+    a JSON file {tests:[...], checker?}. Plus time_limit (s), memory_limit (MB; not
+    enforced locally). A test passes if the program's output matches token-wise, OR
+    — for multi-answer problems — the special-judge checker accepts it. The SAME
+    checker is used by the agent's early-termination and by problem_scorer, so the
+    two always agree.
+    """
+    data = json.loads(blob_str)
+    tests = list(data.get("tests", []) or [])
+    checker_src = (data.get("checker") or "").strip()
+    # Sidecar files keep the CSV small (tests/checkers live outside it).
+    tf = data.get("tests_file")
+    if tf:
+        p = _resolve_sidecar(tf)
+        if p:
+            with open(p) as fh:
+                side = json.load(fh)
+            tests = list(side.get("tests", []) or [])
+            if not checker_src:
+                checker_src = (side.get("checker") or "").strip()
+    gtf = data.get("gen_tests_file")
+    if gtf:
+        p = _resolve_sidecar(gtf)
+        if p:
+            with open(p) as fh:
+                side = json.load(fh)
+            tests = tests + list(side.get("tests", []) or [])
+    time_limit = float(data.get("time_limit", 2.0) or 2.0)
+    per_test_timeout = max(10.0, time_limit * 6.0)  # generous: local hardware != judge
+
+    def checker(problem: str, solution: str) -> tuple[bool, str]:
+        code = _extract_cpp(solution)
+        if code is None:
+            return False, "no C++ code block found in solution"
+        if not tests:
+            return False, "no tests available in target blob"
+        workdir = tempfile.mkdtemp(prefix="cf_chk_")
+        try:
+            src = os.path.join(workdir, "main.cpp")
+            exe = os.path.join(workdir, "main")
+            with open(src, "w") as f:
+                f.write(code)
+            try:
+                cp = subprocess.run(["g++", "-O2", "-std=c++17", "-o", exe, src],
+                                    capture_output=True, text=True, timeout=60)
+            except subprocess.TimeoutExpired:
+                return False, "compile timed out"
+            if cp.returncode != 0:
+                return False, f"compile error: {cp.stderr.strip()[:200]}"
+            chk_path = None
+            if checker_src:
+                chk_path = os.path.join(workdir, "checker.py")
+                with open(chk_path, "w") as f:
+                    f.write(checker_src)
+            for j, t in enumerate(tests):
+                inp = t.get("input", "")
+                exp = t.get("output", "")
+                try:
+                    run = subprocess.run([exe], input=inp, capture_output=True,
+                                         text=True, timeout=per_test_timeout)
+                except subprocess.TimeoutExpired:
+                    return False, (f"test {j+1}/{len(tests)}: time limit exceeded "
+                                   f"(> {per_test_timeout:.0f}s local)")
+                if run.returncode != 0:
+                    return False, f"test {j+1}/{len(tests)}: runtime error (rc={run.returncode})"
+                if run.stdout.split() == exp.split():
+                    continue
+                # token mismatch -> try the special-judge checker (multi-answer problems)
+                if chk_path:
+                    try:
+                        ci = os.path.join(workdir, "in.txt")
+                        co = os.path.join(workdir, "cor.txt")
+                        cs = os.path.join(workdir, "out.txt")
+                        for p, c in ((ci, inp), (co, exp), (cs, run.stdout)):
+                            with open(p, "w") as f:
+                                f.write(c)
+                        cr = subprocess.run(["python3", chk_path, ci, co, cs],
+                                            capture_output=True, text=True, timeout=30)
+                        if cr.stdout.strip().startswith("1"):
+                            continue
+                    except Exception:
+                        pass
+                return False, f"test {j+1}/{len(tests)}: wrong answer"
+            return True, f"passed all {len(tests)} held-out tests"
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
+
+    return checker
+
+
 def make_ground_truth(solution_spec: str):
     """Build a GroundTruthChecker from a solution spec.
 
     Returns a callable(problem, solution) -> (bool, str).
     """
+    if _is_codeforces_blob(solution_spec):
+        return _make_codeforces_checker(solution_spec)
+
     if _is_checker_function(solution_spec):
         namespace: dict = {}
         exec(compile(solution_spec.strip(), "<checker>", "exec"), namespace)

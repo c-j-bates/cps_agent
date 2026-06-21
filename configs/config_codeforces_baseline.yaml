@@ -1,0 +1,38 @@
+agent_class: multi_turn
+
+llm:
+  provider: deepseek-cloud
+  model: deepseek-reasoner
+  temperature: 0.7
+  max_tokens: 65536
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent competitive programmer and scientific thinker."
+
+# Pure baseline for codeforces: single turn, no grammar, no hypothesis scaffolding.
+# Mirrors config_rosetta_baseline.yaml (one solve node + answer_check side channel).
+
+graph:
+  entry: solve
+
+  nodes:
+    solve:
+      prompt: |
+        {problem}
+
+        Solve the above competitive-programming problem. Output a complete, efficient C++17
+        solution that reads from standard input and writes to standard output, as a single
+        ```cpp code block.
+
+  edges: []
+
+  side_channels:
+    - id: answer_check
+      run_after: [solve]
+      check_answer: true
+      graph:
+        entry: give_solution
+        nodes:
+          give_solution:
+            prompt: |
+              Output your current best complete C++17 solution for this problem and NOTHING else:
+              a single ```cpp code block that reads from stdin and writes to stdout. No commentary.
+        edges: []

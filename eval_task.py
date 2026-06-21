@@ -16,9 +16,14 @@ Usage via Python:
 
 from __future__ import annotations
 
+import csv
 import logging
 import re
 import traceback
+
+# Codeforces target blobs (held-out tests + special-judge checker) can exceed the stdlib
+# csv default field-size limit (128KB); raise it before any csv_dataset read.
+csv.field_size_limit(10**8)
 from datetime import datetime
 from pathlib import Path
 from typing import Any

@@ -1,0 +1,140 @@
+agent_class: multi_turn
+
+llm:
+  provider: deepseek-cloud
+  model: deepseek-reasoner
+  temperature: 0.7
+  max_tokens: 65536
+  system_prompt: "You are a precise and thorough problem-solver who is an excellent competitive programmer and scientific thinker."
+
+# Ablation: the SAME grammar in context as config_codeforces_generate_vars.yaml, but with NO
+# hypothesis-generation scaffolding — the solver just solves (with the grammar available) and
+# gets continuation turns. Isolates the effect of the structured hypothesis protocol vs. merely
+# having the grammar present. Same loop budget (max_repeats: 5) and answer_check as the full config.
+
+graph:
+  entry: present_grammar
+
+  nodes:
+    present_grammar:
+      prompt: |
+        {problem}
+
+        Below is a fixed scheme of the VARIABLES that define a competitive-programming solution,
+        together with most of their possible VALUES. First read it; then (still in this turn) do
+        the short INSTANCE REVIEW at the bottom. You will use this scheme to help you solve THIS
+        problem. Do not write code yet.
+
+        ================= SOLUTION GRAMMAR =================
+
+        THE GATE — first ask: which resource binds the goal?
+          - COMPUTATION  (full information, deterministic; the usual case) -> a STRUCTURAL
+            property -> a discard-based combinator.
+          - INFORMATION  (something is hidden, revealed over time, or an outcome must be
+            forced against a judge/opponent) -> an INFORMATIONAL property -> the
+            Strategy/Decode producer.
+          - NEITHER  -> a derivation LEAF (closed form / direct construction); the property is
+            the whole answer.
+          (These nest: when both bind, the information producer is outer, computation inner.)
+
+        THE VARIABLES (assigning a value to each specifies one solution approach):
+          v1 input-object : scalars | sequence | multiset | tree | graph | grid | geometric |
+                            intervals | state-space | algebraic
+          v2 output-shape : decide | count | optimize | evaluate | construct | vector | locate | interact
+          v3 binding-resource (gate) : computation | information | none
+          v4 property (trigger)      : see PROPERTY->TECHNIQUE below
+          v5 producer (combinator)   : Scan | Fold | Split | Search | Quotient | Aggregate |
+                                       Decide-Param | Strategy/Decode | leaf
+          v6 interface / certificate : the state kept (sufficient statistic) — or, for
+                                       Strategy/Decode, the certificate that proves it wins/decodes
+          v7 re-representation       : none | Reindex(<transform>) | Reschedule(<transform>)
+
+        COMBINATORS (discard-based; each cuts a boundary and keeps only a sufficient statistic):
+          - Scan        : process a sequence in order, keep a carried state. (DP / greedy / prefix.)
+          - Fold        : process a tree/hierarchy bottom-up, keep a per-subtree summary.
+                          (tree DP; data-structure maintenance = Fold over a balanced index tree with a monoid.)
+          - Split       : divide & conquer, keep a cross-boundary summary. (also fast matrix/exponent power.)
+          - Search      : explore a state space (BFS/DFS/Dijkstra/retrograde); keep the STATE =
+                          sufficient statistic of history (Markov). Augment the state minimally when a plain one fails.
+          - Quotient    : canonicalize — keep a representative invariant under an equivalence
+                          (reduces "are these equivalent?" to "are these equal?").
+          - Aggregate   : sum independent contributions; keep the per-unit contribution
+                          (linearity of expectation; inclusion-exclusion / Mobius).
+          - Decide-Param: convert optimize -> decide and binary-search the answer using a
+                          MONOTONE feasibility oracle (the oracle is itself one of the above).
+          - Strategy/Decode (information-bound): emit an ADAPTIVE policy (moves/queries) instead
+                          of a value; keep a CERTIFICATE that proves it terminates / wins / decodes.
+          - leaf        : closed-form formula or direct construction; no decomposition.
+
+        PROPERTY -> TECHNIQUE (detect the property; it both SELECTS the producer and CERTIFIES the discard):
+          structural:
+            - monotone feasibility                                  -> Decide-Param / greedy
+            - optimal substructure (future depends on past only via a small summary) -> Scan / Fold / Search
+            - symmetry / equivalence                                -> Quotient
+            - independence / linearity                              -> Aggregate
+            - conserved / capacity quantity                         -> flow (a Search variant)
+            - coupling dissolves under a coordinate change          -> Reindex (creates a discard), then a combinator
+            - order-insensitivity / can be done offline             -> Reschedule, then a combinator
+            - provable boundedness (answer or search space is small)-> brute force / meet-in-the-middle
+          informational:
+            - oracle injectivity / entropy (query) budget           -> Decode (decode by chaining queries / bisection)
+            - forcing potential + counting/pigeonhole bound         -> Strategy (drive a monovariant the other side cannot block)
+            - maintainable invariant (symmetry / pairing / mirroring / Grundy) -> Strategy (preserve it).
+              [To only PREDICT a game's winner, COMPUTE the invariant (e.g. xor of Grundy values) = Aggregate, NOT Strategy.]
+
+        CERTIFICATE TYPES (the v6 slot for Strategy/Decode): potential/monovariant |
+          invariant (symmetry/pairing/mirroring/Grundy) | information-measure (candidate-shrink / bisection / injective-decode) |
+          counting_bound / strategy-stealing (a forcing target provably exists).
+
+        ENABLING MOVES (v7; lossless re-representations that create a discard, then defer to a combinator):
+          - Reindex   : change the data's representation — prefix-xor; coordinate change (x+y, x-y);
+                        build an implicit graph over states; positions -> value histogram;
+                        linear time-invariant transition -> matrix; add a virtual source/sink.
+          - Reschedule: change processing order — reverse time (deletions -> insertions);
+                        sort queries offline; process by increasing weight/threshold.
+
+        KEY PRINCIPLE: the hard part is recognizing WHAT STATE CAN BE THROWN AWAY (the sufficient
+        statistic). The property you detect names the discard and certifies it is safe. Interfaces
+        and re-representations are a GROWABLE vocabulary — if THIS problem needs a value not listed,
+        add it.
+        ====================================================
+
+        INSTANCE REVIEW (do this now, in this turn — a few lines; the values above are mostly
+        pre-filled, so do NOT re-derive them):
+          - v1 input-object and v2 output-shape for this problem (read them off the statement);
+          - the binding resource (the gate): does computation, information, or neither bind here?
+          - any candidate value you may need to ADD that is not in the lists above (a new interface /
+            sufficient statistic, a problem-specific re-representation, or a certificate).
+        Do not write code yet — that comes next.
+
+    solve:
+      prompt: |
+        Now solve the problem. Use the grammar above however you find helpful (identify the binding
+        resource, the property, the producer/combinator, the state to keep, and any re-representation).
+        Output a complete, efficient C++17 solution that reads from stdin and writes to stdout, as a
+        single ```cpp code block. If your solution turns out to be wrong you will get further turns
+        to fix it.
+
+    keep_going:
+      prompt: |
+        That solution was not correct. Keep going: revise it, or try a different approach (you may
+        use the grammar above). Re-examine your assumptions — which property did you misjudge, or
+        what state did you fail to discard? End your message with the complete final ```cpp solution.
+
+  edges:
+    - { from: present_grammar, to: solve }
+    - { from: solve, to: keep_going }
+    - { from: keep_going, to: keep_going, max_repeats: 5 }
+
+  side_channels:
+    - id: answer_check
+      run_after: [solve, keep_going]
+      check_answer: true
+      graph:
+        entry: give_solution
+        nodes:
+          give_solution:
+            prompt: |
+              Output your current best complete C++17 solution for this problem and NOTHING else:
+              a single ```cpp code block that reads from stdin and writes to stdout. No commentary.
+        edges: []

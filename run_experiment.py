@@ -150,6 +150,7 @@ def load_problems_from_csv(path: str | Path) -> dict[str, dict]:
     If the CSV has an 'id' column, use that as the problem ID.
     Otherwise, assign 1-indexed row numbers (matching Inspect AI's auto_id).
     """
+    csv.field_size_limit(10**8)  # codeforces blobs (held-out tests + checker) exceed the 128KB default
     problems: dict[str, dict] = {}
     with open(path, newline="") as f:
         reader = csv.DictReader(f)

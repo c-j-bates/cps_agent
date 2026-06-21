@@ -48,5 +48,9 @@ retroactive_fix*.py
 # Intermediate dataset-generation artifacts
 generators/bongard/bongard_pilot*.csv
 
+# Codeforces test data (large; NOT committed — fetch via `python build_codeforces_dataset.py`)
+datasets/codeforces_tests/
+datasets/codeforces_tests_generated/
+
 # OS
 .DS_Store
