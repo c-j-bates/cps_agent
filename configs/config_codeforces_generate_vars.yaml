@@ -153,10 +153,16 @@ graph:
 
     keep_going:
       prompt: |
-        That attempt was not accepted as correct. Continue the protocol: either REVISE the current
-        code (same hypothesis) or sample a NEW HYPOTHESIS, following the exact format and the two
-        decisions. Re-examine your assumptions — which property did you misjudge, or what state did
-        you fail to discard? When you SUBMIT, end your message with the complete final ```cpp solution.
+        Your last submission was judged and rejected:
+
+            {feedback}
+
+        Continue the protocol: either REVISE the current code (same hypothesis) or sample a NEW
+        HYPOTHESIS, following the exact format and the two decisions. Let the judge feedback above
+        (which test failed and how — wrong answer, time limit exceeded, runtime or compilation error)
+        guide the decision: a time-limit verdict points at the Cost check (the term is too slow); a
+        wrong-answer verdict points at the Fit check (the property does not hold, or a wrong state was
+        discarded). When you SUBMIT, end your message with the complete final ```cpp solution.
 
   edges:
     - { from: present_grammar, to: generate_hypotheses }

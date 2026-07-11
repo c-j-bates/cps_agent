@@ -11,20 +11,20 @@ Implements the full pipeline from Section 13 of the spec:
 
 Usage:
     # Full pipeline for one experiment group (all strategies for a dataset)
-    python -m tda_analysis_rosetta.run_tda experiment_logs/bigbench-rosetta
+    python -m tda_analysis_rosetta.run_tda experiment_logs/rosetta-hard
 
     # Specify output directory
-    python -m tda_analysis_rosetta.run_tda experiment_logs/bigbench-rosetta \\
-        --output-dir tda_results/bigbench-rosetta
+    python -m tda_analysis_rosetta.run_tda experiment_logs/rosetta-hard \\
+        --output-dir tda_results/rosetta-hard
 
     # Code only (skip TDA and comparison — useful for incremental work)
-    python -m tda_analysis_rosetta.run_tda experiment_logs/bigbench-rosetta --code-only
+    python -m tda_analysis_rosetta.run_tda experiment_logs/rosetta-hard --code-only
 
     # Features only (skip coding, use cached traces)
-    python -m tda_analysis_rosetta.run_tda experiment_logs/bigbench-rosetta --features-only
+    python -m tda_analysis_rosetta.run_tda experiment_logs/rosetta-hard --features-only
 
     # Specific strategies
-    python -m tda_analysis_rosetta.run_tda experiment_logs/bigbench-rosetta \\
+    python -m tda_analysis_rosetta.run_tda experiment_logs/rosetta-hard \\
         --strategies baseline keep_thinking_step_by_step self_discover
 """
 
@@ -163,6 +163,25 @@ def _coding_output_dir(output_dir: str, coder_model: str) -> str:
     return os.path.join(output_dir, f"coded-by-{coder_model}")
 
 
+def _covered_by_decisions(decisions: list[dict]) -> set[str]:
+    """Return the set of novel-type names a Prompt-C decision list covers.
+
+    Used to detect cache staleness: if `collect_novel_types` returns
+    names that aren't in this set, the cache is incomplete (a later
+    batch of coded problems introduced new novel types).
+    """
+    covered = set()
+    for d in decisions:
+        action = d.get("action")
+        if action in ("remap", "decompose") and "from" in d:
+            covered.add(d["from"])
+        elif action == "merge":
+            covered.update(d.get("types", []))
+        elif action == "keep" and "type" in d:
+            covered.add(d["type"])
+    return covered
+
+
 def run_pipeline(experiment_group_dir: str,
                  output_dir: str,
                  strategies: list[str] | None = None,
@@ -172,6 +191,7 @@ def run_pipeline(experiment_group_dir: str,
                  features_only: bool = False,
                  no_viz: bool = False,
                  no_api: bool = False,
+                 refresh_novel_types: bool = False,
                  model: str = "claude-opus-4-6",
                  provider: str = "claude",
                  thinking: bool | str = False):
@@ -266,17 +286,74 @@ def run_pipeline(experiment_group_dir: str,
 
     if novel_types:
         print(f"\n── Novel type review ({len(novel_types)} types) ──")
+        observed = {t["type"] for t in novel_types}
 
-        # Check cache first to avoid redundant LLM calls
+        cached_decisions: list[dict] | None = None
         if os.path.isfile(decisions_path):
-            decisions = json.loads(Path(decisions_path).read_text())
+            cached_decisions = json.loads(Path(decisions_path).read_text())
+
+        # Detect cache staleness: which observed types is the cache missing,
+        # and which cached types are no longer present in the dataset?
+        cache_is_stale = False
+        new_types: set[str] = set()
+        stale_types: set[str] = set()
+        if cached_decisions is not None:
+            covered = _covered_by_decisions(cached_decisions)
+            new_types = observed - covered
+            stale_types = covered - observed
+            cache_is_stale = bool(new_types) or bool(stale_types)
+
+        force_refresh = refresh_novel_types or cache_is_stale
+
+        if cached_decisions is not None and not force_refresh:
+            decisions = cached_decisions
             print(f"  Using cached decisions: {decisions_path}")
         elif no_api:
-            print(f"  [no-api] No cached novel-type decisions at "
-                  f"{decisions_path}; skipping review (all novel types "
-                  f"treated as rejected)")
-            decisions = []
+            if cached_decisions is None:
+                print(f"  [no-api] No cached novel-type decisions at "
+                      f"{decisions_path}; skipping review (all novel "
+                      f"types treated as rejected)")
+                decisions = []
+            else:
+                # Cache exists but is stale; --no-api forbids the refresh
+                if new_types:
+                    print(f"  [no-api] WARNING: cache is missing decisions "
+                          f"for {len(new_types)} new novel type(s): "
+                          f"{sorted(new_types)[:5]}"
+                          f"{'…' if len(new_types) > 5 else ''}")
+                if stale_types:
+                    print(f"  [no-api] WARNING: cache contains stale "
+                          f"decisions for {len(stale_types)} type(s) not "
+                          f"in current dataset: {sorted(stale_types)[:5]}"
+                          f"{'…' if len(stale_types) > 5 else ''}")
+                print(f"  [no-api] Using stale cache as-is. To refresh: "
+                      f"re-run without --no-api (or pass "
+                      f"--refresh-novel-types).")
+                decisions = cached_decisions
         else:
+            if cached_decisions is not None:
+                # Loud auto-refresh notice — surfaces the problem the user
+                # would otherwise hit silently when running piecemeal.
+                reasons = []
+                if refresh_novel_types:
+                    reasons.append("--refresh-novel-types flag")
+                if new_types:
+                    reasons.append(
+                        f"{len(new_types)} new novel type(s) not in cache: "
+                        f"{sorted(new_types)[:5]}"
+                        f"{'…' if len(new_types) > 5 else ''}"
+                    )
+                if stale_types:
+                    reasons.append(
+                        f"{len(stale_types)} cached type(s) no longer "
+                        f"observed: {sorted(stale_types)[:5]}"
+                        f"{'…' if len(stale_types) > 5 else ''}"
+                    )
+                print(f"  Cache at {decisions_path} is stale; "
+                      f"re-running PROMPT_C from scratch.")
+                for r in reasons:
+                    print(f"    • {r}")
+
             if client is None:
                 from llm_clients import create_client
                 client = create_client(provider, model=model,
@@ -436,16 +513,16 @@ def main():
         epilog="""
 Examples:
   # Full pipeline
-  python -m tda_analysis_rosetta experiment_logs/bigbench-rosetta
+  python -m tda_analysis_rosetta experiment_logs/rosetta-hard
 
   # Only code (no TDA/comparison)
-  python -m tda_analysis_rosetta experiment_logs/bigbench-rosetta --code-only
+  python -m tda_analysis_rosetta experiment_logs/rosetta-hard --code-only
 
   # Use cached traces, just compute features
-  python -m tda_analysis_rosetta experiment_logs/bigbench-rosetta --features-only
+  python -m tda_analysis_rosetta experiment_logs/rosetta-hard --features-only
 
   # Filter by strategy and solver model, first 5 puzzles only
-  python -m tda_analysis_rosetta experiment_logs/bigbench-rosetta \\
+  python -m tda_analysis_rosetta experiment_logs/rosetta-hard \\
       --strategies baseline self_discover \\
       --models claude-opus-4-6-instant \\
       --max-problems 5
@@ -453,7 +530,7 @@ Examples:
     )
     parser.add_argument("experiment_group_dir",
                         help="Path to the experiment log group directory "
-                             "(e.g., experiment_logs/bigbench-rosetta)")
+                             "(e.g., experiment_logs/rosetta-hard)")
     parser.add_argument("--output-dir", "-o", default=None,
                         help="Output directory (default: tda_results/<group_name>)")
     parser.add_argument("--strategies", nargs="+", default=None,
@@ -473,6 +550,14 @@ Examples:
                              "coding and novel-type decisions only; experiment "
                              "dirs with no cache are skipped with a warning. "
                              "Implies --features-only for the coding step.")
+    parser.add_argument("--refresh-novel-types", action="store_true",
+                        help="Force Prompt C to re-run from scratch, even if "
+                             "a cached novel_type_decisions.json exists. "
+                             "Useful when you've coded more problems and want "
+                             "MERGE to see all novel types at once. "
+                             "Cache staleness (cached decisions vs. currently "
+                             "observed novel types) auto-triggers this "
+                             "anyway — this flag is for forcing it manually.")
     parser.add_argument("--coder-model", default="claude-opus-4-6",
                         help="LLM model used for coding/analysis calls "
                              "(default: claude-opus-4-6)")
@@ -505,6 +590,7 @@ Examples:
         features_only=args.features_only,
         no_viz=args.no_viz,
         no_api=args.no_api,
+        refresh_novel_types=args.refresh_novel_types,
         model=args.coder_model,
         provider=args.coder_provider,
         thinking=thinking_val,

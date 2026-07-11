@@ -178,9 +178,12 @@ def _make_codeforces_checker(blob_str: str):
     per_test_timeout = max(10.0, time_limit * 6.0)  # generous: local hardware != judge
 
     def checker(problem: str, solution: str) -> tuple[bool, str]:
+        # The detail string is judge-style feedback (verdict + first failing test +
+        # how many passed), matching what a real submitter sees. It is surfaced to the
+        # solver on its next turn (see the {feedback} substitution in _execute_graph).
         code = _extract_cpp(solution)
         if code is None:
-            return False, "no C++ code block found in solution"
+            return False, "No C++ code block found in your submission."
         if not tests:
             return False, "no tests available in target blob"
         workdir = tempfile.mkdtemp(prefix="cf_chk_")
@@ -193,14 +196,15 @@ def _make_codeforces_checker(blob_str: str):
                 cp = subprocess.run(["g++", "-O2", "-std=c++17", "-o", exe, src],
                                     capture_output=True, text=True, timeout=60)
             except subprocess.TimeoutExpired:
-                return False, "compile timed out"
+                return False, "Compilation error: the compiler timed out (60s)."
             if cp.returncode != 0:
-                return False, f"compile error: {cp.stderr.strip()[:200]}"
+                return False, f"Compilation error:\n{cp.stderr.strip()[:1500]}"
             chk_path = None
             if checker_src:
                 chk_path = os.path.join(workdir, "checker.py")
                 with open(chk_path, "w") as f:
                     f.write(checker_src)
+            n = len(tests)
             for j, t in enumerate(tests):
                 inp = t.get("input", "")
                 exp = t.get("output", "")
@@ -208,10 +212,15 @@ def _make_codeforces_checker(blob_str: str):
                     run = subprocess.run([exe], input=inp, capture_output=True,
                                          text=True, timeout=per_test_timeout)
                 except subprocess.TimeoutExpired:
-                    return False, (f"test {j+1}/{len(tests)}: time limit exceeded "
-                                   f"(> {per_test_timeout:.0f}s local)")
+                    return False, (f"Time limit exceeded on test {j+1} "
+                                   f"(passed {j} of {n}); your program exceeded the time budget.")
                 if run.returncode != 0:
-                    return False, f"test {j+1}/{len(tests)}: runtime error (rc={run.returncode})"
+                    why = (f"killed by signal {-run.returncode}" if run.returncode < 0
+                           else f"exit code {run.returncode}")
+                    err = (run.stderr or "").strip()
+                    tail = f"; stderr: {err[-300:]}" if err else ""
+                    return False, (f"Runtime error on test {j+1} "
+                                   f"(passed {j} of {n}): {why}{tail}")
                 if run.stdout.split() == exp.split():
                     continue
                 # token mismatch -> try the special-judge checker (multi-answer problems)
@@ -220,8 +229,8 @@ def _make_codeforces_checker(blob_str: str):
                         ci = os.path.join(workdir, "in.txt")
                         co = os.path.join(workdir, "cor.txt")
                         cs = os.path.join(workdir, "out.txt")
-                        for p, c in ((ci, inp), (co, exp), (cs, run.stdout)):
-                            with open(p, "w") as f:
+                        for pth, c in ((ci, inp), (co, exp), (cs, run.stdout)):
+                            with open(pth, "w") as f:
                                 f.write(c)
                         cr = subprocess.run(["python3", chk_path, ci, co, cs],
                                             capture_output=True, text=True, timeout=30)
@@ -229,8 +238,8 @@ def _make_codeforces_checker(blob_str: str):
                             continue
                     except Exception:
                         pass
-                return False, f"test {j+1}/{len(tests)}: wrong answer"
-            return True, f"passed all {len(tests)} held-out tests"
+                return False, f"Wrong answer on test {j+1} (passed {j} of {n})."
+            return True, f"Accepted — passed all {n} tests."
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
 
@@ -410,6 +419,9 @@ class MultiTurnAgent:
         self.execution_tree: list[dict] = []
         self.terminated_early: bool = False
         self._problem: str = ""
+        # Judge feedback on the most recent checked submission — substituted for
+        # {feedback} in the next node's prompt (e.g. keep_going). Empty until a check runs.
+        self._last_feedback: str = ""
 
     # -- helpers ------------------------------------------------------------
 
@@ -537,6 +549,9 @@ class MultiTurnAgent:
             node_visit_counts[current_id] = visit_num
 
             prompt_text = node.prompt.replace("{problem}", problem)
+            if "{feedback}" in prompt_text:
+                fb = self._last_feedback or "(no judge feedback yet)"
+                prompt_text = prompt_text.replace("{feedback}", fb)
 
             # Execute node — LLM sees inherited + own history
             full_history = inherited_history + own_history
@@ -610,8 +625,11 @@ class MultiTurnAgent:
                 }
 
                 if sc.check_answer and sc_last is not None:
-                    correct, _ = self.ground_truth(self._problem, sc_last)
+                    correct, detail = self.ground_truth(self._problem, sc_last)
                     branch_entry["answer_correct"] = correct
+                    branch_entry["answer_feedback"] = detail
+                    # Surface the judge verdict to the next main-channel turn (keep_going).
+                    self._last_feedback = detail
                     logger.info(
                         f"Answer check after {current_id} [visit {visit_num}]: "
                         f"{'CORRECT' if correct else 'INCORRECT'} "

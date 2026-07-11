@@ -141,8 +141,27 @@ def plot_radar(strategy_profiles: dict[str, dict], output_path: str,
         if max_vals[f] == 0:
             max_vals[f] = 1.0
 
-    colors = ["#4C72B0", "#DD8452", "#55A868", "#C44E52", "#8172B3",
-              "#937860", "#DA8BC3", "#8C8C8C", "#CCB974", "#64B5CD"]
+    # Mirror the palette + display aliases used in analyze_results.py so the
+    # radar matches the per-cell figures elsewhere in the paper.
+    STRATEGY_COLORS = {
+        "baseline": "#4C72B0",
+        "keep_thinking_step_by_step": "#55A868",
+        "keep_thinking_step_by_step_repeats10": "#2D7041",
+        "step_back": "#C44E52",
+        "self_discover": "#DD8452",
+        "generate_vars": "#8172B3",
+        "generate_vars_strict_chain": "#17BECF",
+    }
+    STRATEGY_DISPLAY_FLAT = {
+        "baseline": "baseline",
+        "keep_thinking_step_by_step": "keep-thinking-step-by-step",
+        "keep_thinking_step_by_step_repeats10": "keep-thinking-step-by-step (extended)",
+        "step_back": "step-back",
+        "self_discover": "self-discover",
+        "generate_vars": r"generate-$\Theta$",
+        "generate_vars_strict_chain": r"generate-$\Theta$-strict-chain",
+    }
+    fallback_cycle = ["#937860", "#DA8BC3", "#8C8C8C", "#CCB974", "#64B5CD"]
 
     for i, strategy in enumerate(strategies):
         values = [
@@ -150,14 +169,18 @@ def plot_radar(strategy_profiles: dict[str, dict], output_path: str,
             for f in features_to_plot
         ]
         values += values[:1]
-        color = colors[i % len(colors)]
-        ax.plot(angles, values, 'o-', linewidth=2, label=strategy, color=color)
+        color = STRATEGY_COLORS.get(strategy) or fallback_cycle[i % len(fallback_cycle)]
+        label = STRATEGY_DISPLAY_FLAT.get(strategy, strategy)
+        ax.plot(angles, values, 'o-', linewidth=2, label=label, color=color)
         ax.fill(angles, values, alpha=0.1, color=color)
 
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(features_to_plot, fontsize=8)
-    ax.set_title("Strategy Profiles (normalized)", fontsize=14, pad=20)
-    ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1.1), fontsize=9)
+    ax.set_xticklabels(features_to_plot, fontsize=16)
+    ax.tick_params(axis="y", labelsize=12)
+    ax.set_title("Strategy Profiles (normalized)", fontsize=18, pad=20)
+    # Moved right (1.05 → 1.20) so the legend no longer overlaps the title or
+    # the top feature label (typically parse_entropy at angle 0).
+    ax.legend(loc="upper right", bbox_to_anchor=(1.20, 1.05), fontsize=14)
 
     # Accuracy text box
     if accuracy:
@@ -166,9 +189,10 @@ def plot_radar(strategy_profiles: dict[str, dict], output_path: str,
             a = accuracy.get(s, {})
             correct = a.get("correct", 0)
             total = a.get("total", 0)
-            acc_lines.append(f"  {s}: {correct}/{total}")
+            disp = STRATEGY_DISPLAY_FLAT.get(s, s)
+            acc_lines.append(f"  {disp}: {correct}/{total}")
         acc_text = "\n".join(acc_lines)
-        fig.text(0.02, 0.02, acc_text, fontsize=8, family="monospace",
+        fig.text(0.02, 0.02, acc_text, fontsize=15, family="monospace",
                  verticalalignment="bottom",
                  bbox=dict(boxstyle="round,pad=0.4", facecolor="white",
                            edgecolor="#cccccc", alpha=0.9))

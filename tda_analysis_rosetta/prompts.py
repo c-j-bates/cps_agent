@@ -190,11 +190,11 @@ within a single trace AND across every trace.
 - `lexicon` values (English gloss): lowercased, singular base form
   (cat / dog / monkey — NOT "cats", "the cat", "Cat", etc.).
 - `phrase_order` / `noun_phrase_order` values: lowercased role names
-  from the closed set ``{"subject","verb","object"}`` or
-  ``{"det","adj","noun"}``. No abbreviations (no "subj", "obj").
+  from the closed set ``{{"subject","verb","object"}}`` or
+  ``{{"det","adj","noun"}}``. No abbreviations (no "subj", "obj").
 - `noun_marking_order` / `verb_marking_order` values: lowercased
-  feature names from ``{"case","plurality"}`` or
-  ``{"tense","plurality"}``. Order = [innermost first, outermost
+  feature names from ``{{"case","plurality"}}`` or
+  ``{{"tense","plurality"}}``. Order = [innermost first, outermost
   last].
 - `relative_clause.marker`: the foreign word verbatim from the
   puzzle, lowercased, stripped of surrounding whitespace.

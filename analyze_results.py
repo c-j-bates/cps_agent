@@ -39,9 +39,11 @@ except ImportError:
 STRATEGY_ORDER = [
     "baseline",
     "keep_thinking_step_by_step",
+    "keep_thinking_step_by_step_repeats10",
     "step_back",
     "self_discover",
     "generate_vars",
+    "generate_vars_strict_chain",
 ]
 
 MODEL_ORDER = [
@@ -67,28 +69,34 @@ MODEL_COLORS = {
 STRATEGY_DISPLAY = {
     "baseline": "baseline",
     "keep_thinking_step_by_step": "keep-thinking-\nstep-by-step",
+    "keep_thinking_step_by_step_repeats10": "keep-thinking-\nstep-by-step\n(extended)",
     "step_back": "step-back",
     "self_discover": "self-discover",
     # "generate_vars": "generate-vars",
     "generate_vars": r"generate-$\Theta$",
+    "generate_vars_strict_chain": "generate-$\\Theta$-\nstrict-chain",
 }
 
 # Flat version (no newlines) for legend labels
 STRATEGY_DISPLAY_FLAT = {
     "baseline": "baseline",
     "keep_thinking_step_by_step": "keep-thinking-step-by-step",
+    "keep_thinking_step_by_step_repeats10": "keep-thinking-step-by-step (extended)",
     "step_back": "step-back",
     "self_discover": "self-discover",
     # "generate_vars": "generate-vars",
     "generate_vars": r"generate-$\Theta$",
+    "generate_vars_strict_chain": r"generate-$\Theta$-strict-chain",
 }
 
 STRATEGY_COLORS = {
     "baseline": "#4C72B0",
     "keep_thinking_step_by_step": "#55A868",
+    "keep_thinking_step_by_step_repeats10": "#2D7041",  # deeper green — variant of keep-thinking
     "step_back": "#C44E52",
     "self_discover": "#DD8452",
     "generate_vars": "#8172B3",
+    "generate_vars_strict_chain": "#17BECF",  # teal — visually distinct from baseline blue
 }
 
 
@@ -1428,6 +1436,820 @@ def _config_check_info(config_path: str) -> tuple[int, int] | None:
     return preamble, max_checks
 
 
+def _per_problem_output_tokens_solved(results: list[dict]) -> tuple[list, list[str], dict]:
+    """Build per-problem output-token data for solved trials only.
+
+    Returns:
+        all_problems: problem IDs in stable insertion order across runs
+        run_labels: "strategy|model" string per result
+        data: {(run_label, problem_id) -> mean output_tokens across solved
+              epochs, or None if no epoch of that run solved the problem}
+    """
+    results = sort_results(results)
+    all_problems = _all_problem_ids(results)
+    run_labels: list[str] = []
+    data: dict[tuple[str, object], float | None] = {}
+
+    for r in results:
+        label = (
+            f"{canonical_strategy(r['config_name'])}"
+            f"|{canonical_model(r['model'], r.get('thinking'))}"
+        )
+        run_labels.append(label)
+        by_problem: dict = defaultdict(list)
+        for s in r.get("samples", []):
+            if s.get("correct"):
+                by_problem[s["id"]].append(s.get("output_tokens", 0))
+        for pid in all_problems:
+            vals = by_problem.get(pid)
+            data[(label, pid)] = sum(vals) / len(vals) if vals else None
+
+    return all_problems, run_labels, data
+
+
+def print_per_problem_tokens_solved(results: list[dict]) -> str:
+    """Per-problem output-token table for solved trials.
+
+    Two-line header (strategy / model). Each column is sized to the wider
+    of the strategy name, model name, or value width. Unsolved cells: '-'.
+    """
+    all_problems, run_labels, data = _per_problem_output_tokens_solved(results)
+    if not run_labels:
+        return ""
+
+    parts = [tuple(l.split("|", 1)) for l in run_labels]
+    value_w = 8
+    col_widths = [max(value_w, len(s), len(m)) for s, m in parts]
+    id_col_w = max(7, max(len(str(p)) for p in all_problems)) if all_problems else 7
+
+    row_strat = f"{'':<{id_col_w}} " + " ".join(
+        f"{s:>{w}}" for (s, _), w in zip(parts, col_widths)
+    )
+    row_model = f"{'Problem':<{id_col_w}} " + " ".join(
+        f"{m:>{w}}" for (_, m), w in zip(parts, col_widths)
+    )
+    sep = "-" * len(row_model)
+
+    lines = [
+        "\nPer-Problem Output Tokens (solved trials only; '-' = not solved):",
+        sep, row_strat, row_model, sep,
+    ]
+
+    for pid in all_problems:
+        cells = []
+        for label, w in zip(run_labels, col_widths):
+            val = data.get((label, pid))
+            cells.append(f"{val:>{w},.0f}" if val is not None else f"{'-':>{w}}")
+        lines.append(f"{str(pid):<{id_col_w}} " + " ".join(cells))
+
+    lines.append(sep)
+    table_str = "\n".join(lines)
+    print(table_str)
+    return table_str
+
+
+def _instant_runs_by_family(run_labels: list[str]) -> dict[str, list[str]]:
+    """Group run labels by LLM family, keeping only non-thinking/non-reasoner variants.
+
+    Thinking and reasoning variants emit tokens by construction (lots of
+    inner monologue), so they make a poor signal of "tokens required by the
+    problem itself" and are excluded from difficulty analyses.
+    """
+    by_family: dict[str, list[str]] = defaultdict(list)
+    for label in run_labels:
+        _, model = label.split("|", 1)
+        if "thinking" in model or "reasoner" in model:
+            continue
+        by_family[_llm_family(model)].append(label)
+    return dict(by_family)
+
+
+def tokens_per_difficulty(results: list[dict], output_dir: Path) -> Path | None:
+    """Group problems by # of family-strategies that solved them; report tokens.
+
+    For each LLM family present (instant variants only):
+      * k = number of strategies in that family that solved a given problem
+      * mean_tokens_p = mean output tokens across those k solvers for problem p
+      * Group problems by k, report median/mean of mean_tokens_p per group.
+
+    Hypothesis being tested: harder problems (lower k) require more tokens —
+    so median/mean tokens should rise as k decreases.
+
+    Caveats:
+      * k=0 is excluded (no solvers ⇒ no data, not "zero tokens").
+      * Within-family analysis: difficulty signal and token measurement
+        come from the same family, so there is residual circularity from
+        shared training behavior.
+
+    Returns the path to the generated plot (or None if no plottable data).
+    """
+    all_problems, run_labels, data = _per_problem_output_tokens_solved(results)
+    if not run_labels:
+        return None
+
+    by_family = _instant_runs_by_family(run_labels)
+    families = [f for f in ("opus", "deepseek") if f in by_family]
+    families += sorted(set(by_family) - set(families))
+    if not families:
+        print("  Skipping tokens_per_difficulty (no instant-variant runs)")
+        return None
+
+    per_family_groups: dict[str, dict[int, list[float]]] = {}
+    for family in families:
+        labels = by_family[family]
+        groups: dict[int, list[float]] = defaultdict(list)
+        for pid in all_problems:
+            tokens = [data[(l, pid)] for l in labels if data.get((l, pid)) is not None]
+            k = len(tokens)
+            if k == 0:
+                continue
+            groups[k].append(float(np.mean(tokens)))
+        per_family_groups[family] = dict(groups)
+
+    print("\nOutput Tokens vs Problem Difficulty (within LLM family; instant only)")
+    for family in families:
+        groups = per_family_groups[family]
+        if not groups:
+            continue
+        n_strategies = len(by_family[family])
+        print(f"\n  Family: {family}  ({n_strategies} strategies in scope)")
+        print(f"    {'k':>3}  {'n_probs':>8}  {'median_tok':>11}  {'mean_tok':>11}")
+        for k in sorted(groups):
+            vals = groups[k]
+            print(f"    {k:>3}  {len(vals):>8}  "
+                  f"{np.median(vals):>11,.0f}  {np.mean(vals):>11,.0f}")
+
+    if not HAS_MATPLOTLIB:
+        return None
+    plottable = [f for f in families if per_family_groups[f]]
+    if not plottable:
+        return None
+
+    fig, axes = plt.subplots(1, len(plottable),
+                             figsize=(5.5 * len(plottable), 4.5),
+                             squeeze=False, sharey=False)
+    axes = axes[0]
+    for ax, family in zip(axes, plottable):
+        groups = per_family_groups[family]
+        ks = sorted(groups)
+        medians = [float(np.median(groups[k])) for k in ks]
+        means = [float(np.mean(groups[k])) for k in ks]
+        ns = [len(groups[k]) for k in ks]
+        ax.plot(ks, medians, "o-", label="median", color="#4C72B0", linewidth=2)
+        ax.plot(ks, means, "s--", label="mean", color="#DD8452", linewidth=2)
+        for k, m, n in zip(ks, medians, ns):
+            ax.annotate(f"n={n}", (k, m), textcoords="offset points",
+                        xytext=(5, 5), fontsize=7, alpha=0.7)
+        ax.set_xlabel(f"k = # of {len(by_family[family])} family strategies that solved")
+        ax.set_ylabel("Mean output tokens (across solvers per problem)")
+        ax.set_title(f"{family} family")
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+        ax.set_xticks(ks)
+
+    fig.suptitle(
+        "Tokens required to solve, grouped by # of family strategies that solved\n"
+        "Within-family analysis (instant variants only)",
+        fontsize=10,
+    )
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    path = output_dir / "tokens_per_difficulty.png"
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    print(f"  Saved: {path}")
+    return path
+
+
+def plot_tokens_vs_difficulty_rank(results: list[dict], output_dir: Path) -> Path | None:
+    """Per-strategy tokens vs problem difficulty rank.
+
+    For each LLM family (instant variants only):
+      * Define a problem's difficulty score = mean output tokens across all
+        family strategies that solved it. Sort problems by this score
+        (descending: hardest first).
+      * Plot each strategy's per-problem tokens against this rank.
+
+    Interpretation:
+      * If all strategy curves rise together with the family-mean curve,
+        the family agrees on which problems are hard.
+      * If a strategy sits uniformly above others at every rank, it just
+        uses more tokens generally (not difficulty-driven).
+      * If a strategy's curve is flat while the family mean rises, that
+        strategy ignores difficulty.
+
+    Controls for the "stronger model uses more tokens overall" confounder
+    by ranking via family-aggregate rather than any one strategy's tokens —
+    but circularity is not fully broken (signal and measurement share a family).
+    """
+    all_problems, run_labels, data = _per_problem_output_tokens_solved(results)
+    if not run_labels or not HAS_MATPLOTLIB:
+        return None
+
+    by_family = _instant_runs_by_family(run_labels)
+    families = [f for f in ("opus", "deepseek") if f in by_family]
+    families += sorted(set(by_family) - set(families))
+    if not families:
+        return None
+
+    family_data: dict[str, dict] = {}
+    for family in families:
+        labels = by_family[family]
+        scored = []
+        for pid in all_problems:
+            tokens = [data[(l, pid)] for l in labels if data.get((l, pid)) is not None]
+            if not tokens:
+                continue
+            scored.append((pid, float(np.mean(tokens))))
+        if not scored:
+            continue
+        scored.sort(key=lambda x: -x[1])  # hardest first
+        family_data[family] = {
+            "labels": labels,
+            "problems_sorted": [s[0] for s in scored],
+            "scores": [s[1] for s in scored],
+        }
+
+    if not family_data:
+        return None
+
+    n_subs = len(family_data)
+    fig, axes = plt.subplots(1, n_subs, figsize=(6.5 * n_subs, 5),
+                             squeeze=False, sharey=False)
+    axes = axes[0]
+    for ax, family in zip(axes, family_data):
+        fd = family_data[family]
+        problems_sorted = fd["problems_sorted"]
+        xs = list(range(1, len(problems_sorted) + 1))
+        for label in fd["labels"]:
+            strategy, _ = label.split("|", 1)
+            ys = []
+            x_present = []
+            for x_idx, pid in enumerate(problems_sorted, start=1):
+                v = data.get((label, pid))
+                if v is not None:
+                    ys.append(v)
+                    x_present.append(x_idx)
+            color = STRATEGY_COLORS.get(strategy)
+            ax.plot(x_present, ys, "o-",
+                    label=STRATEGY_DISPLAY_FLAT.get(strategy, strategy),
+                    color=color, markersize=4, alpha=0.75, linewidth=1.2)
+        ax.plot(xs, fd["scores"], "k--",
+                label="family mean (difficulty score)",
+                alpha=0.6, linewidth=1.5)
+        ax.set_xlabel("Problem rank (1 = hardest by family-mean tokens)")
+        ax.set_ylabel("Output tokens")
+        ax.set_title(f"{family} family ({len(fd['labels'])} strategies)")
+        ax.legend(fontsize=7, loc="best")
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle(
+        "Per-strategy tokens vs problem difficulty rank\n"
+        "Difficulty score = mean tokens across family strategies (within-family)",
+        fontsize=10,
+    )
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    path = output_dir / "tokens_vs_difficulty_rank.png"
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    print(f"  Saved: {path}")
+    return path
+
+
+def _per_problem_output_tokens_all(results: list[dict]):
+    """Build per-problem output-token data over ALL non-errored attempts.
+
+    Returns:
+        all_problems, run_labels,
+        tokens: {(label, pid) -> mean output_tokens across non-errored epochs}
+        solved: {(label, pid) -> True if any epoch was correct}
+
+    Errored samples (truthy ``error`` field — auth failures, timeouts, etc.)
+    are excluded since they reflect infrastructure issues, not the strategy's
+    own token-generation decisions. A (label, pid) pair is absent from the
+    output dicts if every epoch errored.
+    """
+    results = sort_results(results)
+    all_problems = _all_problem_ids(results)
+    run_labels: list[str] = []
+    tokens: dict[tuple[str, object], float] = {}
+    solved: dict[tuple[str, object], bool] = {}
+
+    for r in results:
+        label = (
+            f"{canonical_strategy(r['config_name'])}"
+            f"|{canonical_model(r['model'], r.get('thinking'))}"
+        )
+        run_labels.append(label)
+        by_pid: dict = defaultdict(list)
+        any_correct: dict = defaultdict(bool)
+        for s in r.get("samples", []):
+            if s.get("error"):
+                continue
+            by_pid[s["id"]].append(s.get("output_tokens", 0))
+            if s.get("correct"):
+                any_correct[s["id"]] = True
+        for pid in all_problems:
+            vals = by_pid.get(pid)
+            if vals:
+                tokens[(label, pid)] = sum(vals) / len(vals)
+                solved[(label, pid)] = any_correct[pid]
+
+    return all_problems, run_labels, tokens, solved
+
+
+def _family_expected_tokens(runs: list[str], all_problems: list,
+                            tokens: dict, solved: dict) -> dict:
+    """Per-problem mean output tokens across all family runs that solved it."""
+    expected: dict = {}
+    for pid in all_problems:
+        vals = [tokens[(t, pid)] for t in runs if solved.get((t, pid), False)]
+        if vals:
+            expected[pid] = float(np.mean(vals))
+    return expected
+
+
+def _is_thinking_variant(label: str) -> bool:
+    """True if the model in this label is a thinking/reasoning variant."""
+    model = label.split("|", 1)[1]
+    return "thinking" in model or "reasoner" in model
+
+
+def plot_unsolved_tokens_vs_expected_by_strategy(results: list[dict],
+                                                  output_dir: Path) -> list[Path]:
+    """One subplot per strategy: actual vs. expected tokens, solved + failed.
+
+    Same data as ``plot_unsolved_tokens_vs_expected`` but split out so each
+    strategy gets its own panel — much less overplotting. One figure per LLM
+    family; within each figure, columns = strategies, rows = (log-log, linear).
+    Axes are shared within a figure for cross-strategy comparison.
+
+    Thinking/reasoning variants are plotted alongside their instant peers in
+    the same column (distinguished by a square marker), but they do NOT
+    contribute to E(P) — E(P) is computed from instant variants only. This
+    keeps the difficulty signal from being inflated by the longer outputs
+    that reasoning models produce by construction.
+    """
+    all_problems, run_labels, tokens, solved = _per_problem_output_tokens_all(results)
+    if not run_labels or not HAS_MATPLOTLIB:
+        return []
+
+    by_family_all: dict[str, list[str]] = defaultdict(list)
+    for label in run_labels:
+        _, model = label.split("|", 1)
+        by_family_all[_llm_family(model)].append(label)
+
+    by_family_instant = _instant_runs_by_family(run_labels)
+
+    families = [f for f in ("opus", "deepseek") if f in by_family_all]
+    families += sorted(set(by_family_all) - set(families))
+    if not families:
+        return []
+
+    # Marker per variant; filled = failed, open = solved (handled below).
+    VARIANT_MARKER = {"instant": "o", "thinking": "s"}
+
+    written: list[Path] = []
+    for family in families:
+        instant_runs = by_family_instant.get(family, [])
+        family_expected = _family_expected_tokens(
+            instant_runs, all_problems, tokens, solved,
+        )
+        if not family_expected:
+            continue
+
+        # Group runs by (strategy, variant). Usually one label per cell.
+        per_cell: dict[tuple[str, str], dict] = {}
+        for s_label in by_family_all[family]:
+            strategy, _ = s_label.split("|", 1)
+            variant = "thinking" if _is_thinking_variant(s_label) else "instant"
+            key = (strategy, variant)
+            cell = per_cell.setdefault(key, {
+                "solved": [], "unsolved": [],
+                "n_solved_total": 0, "n_failed_total": 0,
+            })
+            for pid in all_problems:
+                if (s_label, pid) not in tokens:
+                    continue
+                is_solved = solved.get((s_label, pid), False)
+                if is_solved:
+                    cell["n_solved_total"] += 1
+                else:
+                    cell["n_failed_total"] += 1
+                if pid not in family_expected:
+                    continue
+                expected = family_expected[pid]
+                actual = float(tokens[(s_label, pid)])
+                (cell["solved"] if is_solved else cell["unsolved"]).append(
+                    (expected, actual, pid),
+                )
+
+        strategies_in_family = sorted(
+            {s for (s, _) in per_cell},
+            key=_strategy_sort_key,
+        )
+        if not strategies_in_family:
+            continue
+
+        all_vals: list[float] = []
+        for cell in per_cell.values():
+            for pts in (cell["solved"], cell["unsolved"]):
+                all_vals.extend(e for e, _, _ in pts)
+                all_vals.extend(a for _, a, _ in pts)
+        positive = [v for v in all_vals if v > 0]
+        if not positive:
+            continue
+        lo_log = max(1.0, min(positive))
+        hi = max(positive)
+
+        n_strats = len(strategies_in_family)
+        fig, axes = plt.subplots(
+            2, n_strats,
+            figsize=(3.6 * n_strats, 7.5),
+            squeeze=False, sharex="row", sharey="row",
+        )
+
+        for col, strategy in enumerate(strategies_in_family):
+            ax_log = axes[0][col]
+            ax_lin = axes[1][col]
+            # Fall back to a neutral grey if this strategy isn't in the palette
+            # (otherwise the "solved" scatter, which uses facecolors="none" with
+            # edgecolors=color, becomes invisible when color is None and the
+            # legend entry is silently elided).
+            color = STRATEGY_COLORS.get(strategy) or "#666666"
+            disp = STRATEGY_DISPLAY_FLAT.get(strategy, strategy)
+
+            # Per-variant exclusion counts (sum across variants overcounted
+            # before when both instant and thinking ran on the same strategy,
+            # e.g. baseline). Track separately and report each on its own line.
+            n_excl_by_variant: dict[str, int] = {}
+
+            for variant in ("instant", "thinking"):
+                cell = per_cell.get((strategy, variant))
+                if not cell:
+                    continue
+                unsolved = cell["unsolved"]
+                solved_pts = cell["solved"]
+                n_excl = cell["n_failed_total"] - len(unsolved)
+                if n_excl > 0:
+                    n_excl_by_variant[variant] = n_excl
+
+                marker = VARIANT_MARKER[variant]
+                prefix = "" if variant == "instant" else "thinking "
+
+                for ax in (ax_log, ax_lin):
+                    if unsolved:
+                        ax.scatter(
+                            [e for e, _, _ in unsolved],
+                            [a for _, a, _ in unsolved],
+                            color=color, alpha=0.7, s=32,
+                            edgecolors="white", linewidth=0.4,
+                            marker=marker,
+                            label=f"{prefix}failed (n={len(unsolved)})",
+                        )
+                    if solved_pts:
+                        ax.scatter(
+                            [e for e, _, _ in solved_pts],
+                            [a for _, a, _ in solved_pts],
+                            facecolors="none", edgecolors=color,
+                            alpha=0.7, s=32, linewidth=1.2,
+                            marker=marker,
+                            label=f"{prefix}solved (n={len(solved_pts)})",
+                        )
+
+            for ax in (ax_log, ax_lin):
+                ax.plot([lo_log, hi], [lo_log, hi], "k--", alpha=0.4)
+                ax.grid(True, alpha=0.3, which="both")
+                ax.legend(fontsize=7, loc="lower right")
+
+            if n_excl_by_variant:
+                if len(n_excl_by_variant) == 1:
+                    n = next(iter(n_excl_by_variant.values()))
+                    excl_text = f"{n} excluded (solved by none)"
+                else:
+                    parts = [f"{v}: {n}" for v, n in n_excl_by_variant.items()]
+                    excl_text = "excluded (solved by none)\n" + ", ".join(parts)
+                ax_log.text(
+                    0.02, 0.98,
+                    excl_text,
+                    transform=ax_log.transAxes, fontsize=6,
+                    va="top", ha="left", alpha=0.65,
+                )
+
+            ax_log.set_xscale("log")
+            ax_log.set_yscale("log")
+            ax_log.set_xlim(lo_log * 0.7, hi * 1.3)
+            ax_log.set_ylim(lo_log * 0.7, hi * 1.3)
+            ax_lin.set_xlim(0, hi * 1.05)
+            ax_lin.set_ylim(0, hi * 1.05)
+            ax_log.set_title(disp, fontsize=9)
+            ax_lin.set_xlabel("Expected tokens E(P)")
+            if col == 0:
+                ax_log.set_ylabel("Actual tokens (log)")
+                ax_lin.set_ylabel("Actual tokens (linear)")
+
+        fig.suptitle(
+            f"{family} family — Actual vs. Expected tokens, per strategy\n"
+            "filled = failed, open = solved; ● instant, ■ thinking "
+            "(thinking excluded from E(P))",
+            fontsize=9,
+            y=0.995,
+        )
+        fig.tight_layout(rect=[0, 0, 1, 0.97])
+        path = output_dir / f"unsolved_tokens_vs_expected_by_strategy_{family}.png"
+        fig.savefig(path, dpi=150)
+        plt.close(fig)
+        print(f"  Saved: {path}")
+        written.append(path)
+
+    return written
+
+
+def plot_unsolved_tokens_vs_expected(results: list[dict], output_dir: Path) -> Path | None:
+    """Counterfactual test of the 'reluctance to generate' null hypothesis.
+
+    The null we want to refute: a strategy's apparent weakness is just early
+    termination — on problems it failed, it gave up before generating the
+    tokens a successful solver would have needed.
+
+    Method (within LLM family, instant variants only):
+      * For each (strategy S, problem P) where S did not solve P, compute
+        E(P) = mean output_tokens of OTHER family strategies that DID solve
+        P.
+      * Compare S's actual output_tokens on its failed attempt(s) to E(P).
+
+    Interpretation:
+      * actual ≥ expected: S generated enough — failure isn't reluctance.
+      * actual ≪ expected: consistent with reluctance / early termination.
+
+    Output: per-strategy summary (n, median ratio, % ≥ expected) plus a
+    log-log scatter of (E(P), actual) per family with diagonal reference.
+    """
+    all_problems, run_labels, tokens, solved = _per_problem_output_tokens_all(results)
+    if not run_labels or not HAS_MATPLOTLIB:
+        return None
+
+    by_family = _instant_runs_by_family(run_labels)
+    families = [f for f in ("opus", "deepseek") if f in by_family]
+    families += sorted(set(by_family) - set(families))
+    if not families:
+        return None
+
+    per_family: dict[str, dict[str, dict]] = {}
+    summary_rows: list[dict] = []
+
+    for family in families:
+        runs = by_family[family]
+        family_expected = _family_expected_tokens(runs, all_problems, tokens, solved)
+        per_strategy: dict[str, dict] = {}
+        for s_label in runs:
+            solved_pts: list[tuple[float, float, object]] = []
+            unsolved_pts: list[tuple[float, float, object]] = []
+            for pid in all_problems:
+                if (s_label, pid) not in tokens or pid not in family_expected:
+                    continue
+                expected = family_expected[pid]
+                actual = float(tokens[(s_label, pid)])
+                if solved.get((s_label, pid), False):
+                    solved_pts.append((expected, actual, pid))
+                else:
+                    unsolved_pts.append((expected, actual, pid))
+            if solved_pts or unsolved_pts:
+                per_strategy[s_label] = {
+                    "solved": solved_pts,
+                    "unsolved": unsolved_pts,
+                }
+                if unsolved_pts:
+                    ratios = [a / e for e, a, _ in unsolved_pts if e > 0]
+                    if ratios:
+                        summary_rows.append({
+                            "family": family,
+                            "strategy": s_label,
+                            "n": len(unsolved_pts),
+                            "median_ratio": float(np.median(ratios)),
+                            "pct_above": 100.0 * sum(1 for r in ratios if r >= 1) / len(ratios),
+                        })
+        if per_strategy:
+            per_family[family] = per_strategy
+
+    if not per_family:
+        print("  Skipping unsolved_tokens_vs_expected (no in-scope failures with reference)")
+        return None
+
+    print("\nUnsolved-Token Counterfactual (vs. family expected tokens)")
+    print("  ≥ expected on failures ⇒ failure isn't simple reluctance to generate.")
+    name_w = max((len(r["strategy"]) for r in summary_rows), default=10)
+    print(f"  {'Strategy':<{name_w}}  {'n':>4}  {'med actual/expected':>20}  {'% ≥ expected':>14}")
+    for row in sorted(summary_rows, key=lambda r: (r["family"], r["strategy"])):
+        print(f"  {row['strategy']:<{name_w}}  {row['n']:>4}  "
+              f"{row['median_ratio']:>20.2f}  {row['pct_above']:>13.0f}%")
+
+    n_fams = len(per_family)
+    fig, axes = plt.subplots(2, n_fams, figsize=(6.5 * n_fams, 10.5),
+                             squeeze=False)
+    for col, family in enumerate(per_family):
+        per_strategy = per_family[family]
+        ax_log = axes[0][col]
+        ax_lin = axes[1][col]
+        all_vals: list[float] = []
+        for s_label, pts in per_strategy.items():
+            strategy, _ = s_label.split("|", 1)
+            label = STRATEGY_DISPLAY_FLAT.get(strategy, strategy)
+            color = STRATEGY_COLORS.get(strategy)
+
+            unsolved = pts["unsolved"]
+            solved_pts = pts["solved"]
+            all_vals.extend(e for e, _, _ in unsolved + solved_pts)
+            all_vals.extend(a for _, a, _ in unsolved + solved_pts)
+
+            for ax in (ax_log, ax_lin):
+                if unsolved:
+                    ax.scatter([e for e, _, _ in unsolved],
+                               [a for _, a, _ in unsolved],
+                               color=color, alpha=0.7, s=32,
+                               edgecolors="white", linewidth=0.4,
+                               label=f"{label} failed (n={len(unsolved)})")
+                if solved_pts:
+                    ax.scatter([e for e, _, _ in solved_pts],
+                               [a for _, a, _ in solved_pts],
+                               facecolors="none", edgecolors=color,
+                               alpha=0.7, s=32, linewidth=1.2,
+                               label=f"{label} solved (n={len(solved_pts)})")
+
+        positive = [v for v in all_vals if v > 0]
+        if positive:
+            lo_log = max(1.0, min(positive))
+            hi = max(positive)
+            ax_log.plot([lo_log, hi], [lo_log, hi], "k--", alpha=0.5, label="y = x")
+            ax_log.set_xlim(lo_log * 0.7, hi * 1.3)
+            ax_log.set_ylim(lo_log * 0.7, hi * 1.3)
+            ax_lin.plot([0, hi], [0, hi], "k--", alpha=0.5, label="y = x")
+            ax_lin.set_xlim(0, hi * 1.05)
+            ax_lin.set_ylim(0, hi * 1.05)
+
+        ax_log.set_xscale("log")
+        ax_log.set_yscale("log")
+        ax_log.set_title(f"{family} family (log-log)")
+        ax_lin.set_title(f"{family} family (linear)")
+        for ax in (ax_log, ax_lin):
+            ax.set_xlabel("Expected tokens E(P) (mean across family solvers)")
+            ax.set_ylabel("Actual tokens on attempt")
+            ax.legend(fontsize=6, loc="best", ncol=2)
+            ax.grid(True, alpha=0.3, which="both")
+
+    fig.suptitle(
+        "Tokens Generated vs. Family-Expected Tokens (filled = failed, open = solved)\n"
+        "Above y=x: generated more than expected; below: under expected budget",
+        fontsize=10,
+    )
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    path = output_dir / "unsolved_tokens_vs_expected.png"
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    print(f"  Saved: {path}")
+    return path
+
+
+def save_per_problem_tokens_csv(results: list[dict], output_dir: Path) -> Path:
+    """Save the full per-problem × per-run output-token matrix as CSV.
+
+    Empty cells indicate the run did not solve that problem.
+    """
+    all_problems, run_labels, data = _per_problem_output_tokens_solved(results)
+    path = output_dir / "per_problem_tokens.csv"
+    with open(path, "w") as f:
+        f.write("problem_id," + ",".join(run_labels) + "\n")
+        for pid in all_problems:
+            cells = [str(pid)]
+            for label in run_labels:
+                val = data.get((label, pid))
+                cells.append(f"{val:.0f}" if val is not None else "")
+            f.write(",".join(cells) + "\n")
+    print(f"  Saved: {path}")
+    return path
+
+
+def _llm_family(model: str) -> str:
+    """Group canonical model names into LLM families.
+
+    Reasoning and instant variants of the same base LLM are commensurable
+    enough to share a color scale; different LLM families are not.
+    """
+    if model.startswith("claude-opus"):
+        return "opus"
+    if model.startswith("deepseek"):
+        return "deepseek"
+    return model
+
+
+def plot_per_problem_tokens(results: list[dict], output_dir: Path,
+                            vmax_pct: float = 95.0):
+    """Per-LLM-family heatmaps of output tokens per problem per (strategy, model).
+
+    One subplot per LLM family (opus, deepseek, ...). Reasoning/instant
+    variants of the same family share a subplot (and color scale) since
+    they're commensurable; different families do not, since baseline token
+    output differs systematically.
+
+    Each subplot's color scale is independent and percentile-clipped at
+    ``vmax_pct``. Solved cells are colored; unsolved cells are gray.
+    """
+    all_problems, run_labels, data = _per_problem_output_tokens_solved(results)
+    if not run_labels or not all_problems:
+        return
+
+    by_family: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
+    for label in run_labels:
+        strategy, model = label.split("|", 1)
+        by_family[_llm_family(model)].append((strategy, model, label))
+
+    family_order = ["opus", "deepseek"]
+    families = [f for f in family_order if f in by_family]
+    families += sorted(set(by_family) - set(family_order))
+    if not families:
+        return
+
+    n_problems = len(all_problems)
+    n_fams = len(families)
+
+    cmap = plt.cm.YlOrRd.copy()
+    cmap.set_bad(color="#cccccc")
+
+    cell_h = max(0.22, min(0.5, 12.0 / n_problems))
+    sub_w_per_col = 1.1
+    fig_h = max(6, n_problems * cell_h + 2.5)
+    fig_w = max(8, sum(len(by_family[f]) for f in families) * sub_w_per_col
+                + n_fams * 1.6 + 1.5)
+
+    width_ratios = [max(1, len(by_family[f])) for f in families]
+    fig, axes = plt.subplots(
+        1, n_fams, figsize=(fig_w, fig_h),
+        squeeze=False, sharey=True,
+        gridspec_kw={"width_ratios": width_ratios},
+    )
+    axes = axes[0]
+
+    for ax, family in zip(axes, families):
+        ordered = sorted(
+            by_family[family],
+            key=lambda smc: (_strategy_sort_key(smc[0]), _model_sort_key(smc[1])),
+        )
+        labels = [l for _, _, l in ordered]
+        tick_labels = [
+            f"{STRATEGY_DISPLAY_FLAT.get(s, s)}\n{m}"
+            for s, m, _ in ordered
+        ]
+
+        n_runs = len(labels)
+        matrix = np.full((n_problems, n_runs), np.nan)
+        for j, label in enumerate(labels):
+            for i, pid in enumerate(all_problems):
+                val = data.get((label, pid))
+                if val is not None:
+                    matrix[i, j] = val
+
+        solved_vals = matrix[~np.isnan(matrix)]
+        if solved_vals.size == 0:
+            ax.set_title(f"{family}\n(no solved problems)", fontsize=9)
+            ax.set_xticks([])
+            continue
+
+        vmin = float(solved_vals.min())
+        vmax = float(np.percentile(solved_vals, vmax_pct))
+        actual_max = float(solved_vals.max())
+        clipped = vmax < actual_max
+
+        im = ax.imshow(matrix, aspect="auto", cmap=cmap,
+                       vmin=vmin, vmax=vmax, interpolation="nearest")
+
+        ax.set_xticks(range(n_runs))
+        ax.set_xticklabels(tick_labels, rotation=45, ha="right", fontsize=7)
+        title = family
+        if clipped:
+            title += f" — 95th pct={vmax:,.0f}; max={actual_max:,.0f}"
+        else:
+            title += f" — max={actual_max:,.0f}"
+        ax.set_title(title, fontsize=9)
+
+        plt.colorbar(im, ax=ax, shrink=0.6,
+                     extend="max" if clipped else "neither")
+
+    axes[0].set_yticks(range(n_problems))
+    axes[0].set_yticklabels([str(p) for p in all_problems], fontsize=7)
+    axes[0].set_ylabel("Problem ID")
+
+    fig.suptitle(
+        "Output Tokens per Problem by Strategy (solved only; gray = not solved)\n"
+        "Per-LLM-family color scales — token counts are not comparable across families",
+        fontsize=10,
+    )
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+
+    path = output_dir / "per_problem_tokens.png"
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    print(f"  Saved: {path}")
+
+
 def plot_solution_iterations(results: list[dict], output_dir: Path):
     """Line plots of cumulative proportion solved vs answer-check iteration.
 
@@ -1495,11 +2317,12 @@ def plot_solution_iterations(results: list[dict], output_dir: Path):
     strat_keys = sorted(by_strategy.keys(), key=_strategy_sort_key)
 
     n_plots = len(strat_keys)
-    n_cols = min(3, n_plots)
-    n_rows = math.ceil(n_plots / n_cols)
+    # Single-row layout — easier to compose page-width side-by-side in LaTeX.
+    n_cols = n_plots
+    n_rows = 1
 
     fig, axes = plt.subplots(n_rows, n_cols,
-                             figsize=(4.5 * n_cols, 3.5 * n_rows),
+                             figsize=(3.2 * n_cols, 3.0 * n_rows),
                              squeeze=False)
 
     # Find global y-max for consistent ylim.
@@ -1536,8 +2359,7 @@ def plot_solution_iterations(results: list[dict], output_dir: Path):
             ax.plot(iters, cumulative, marker="o", markersize=4,
                     color=color, label=model, linewidth=1.5)
 
-        # display_strategy = STRATEGY_DISPLAY_FLAT.get(strategy, strategy)
-        display_strategy = canonical_strategy(strategy)
+        display_strategy = STRATEGY_DISPLAY_FLAT.get(strategy, strategy)
         ax.set_title(display_strategy, fontsize=10)
         ax.set_xlabel("Answer-Check Iteration")
         ax.set_ylabel("Proportion Solved")
@@ -1635,6 +2457,260 @@ def print_tda_summary(profiles: dict) -> str:
     return table_str
 
 
+def epoch_consistency_analysis(results: list[dict], output_dir: Path) -> str:
+    """Per-epoch accuracy, within-strategy variability across epochs, and
+    statistical tests of between-strategy differences.
+
+    Designed for multi-epoch DeepSeek runs (skipped if no run has epochs>=2).
+    Writes ``output_dir/epoch_analysis.txt`` and returns the printable string.
+    Outputs:
+      - per-epoch accuracy (epoch1%, epoch2%, epoch3%) per (strategy, model)
+      - SD / range across epochs
+      - Cochran's Q test on per-problem any-of-3 outcomes across the
+        prompt-only strategies (global "are strategies equal?" test)
+      - Paired bootstrap (10k reps) of per-problem mean accuracy
+        for generate_vars minus each other strategy
+      - GEE binomial logistic regression (cluster=problem) for the same
+        pairwise comparison, when statsmodels is available
+    Each block runs separately per (dataset, llm_family) cell.
+    """
+    from collections import defaultdict
+    import numpy as np
+
+    # Group runs by (llm_family, dataset_label).  Treat each results dir
+    # itself as one cell (so the caller's --results-dir picks the dataset).
+    multi_epoch = [r for r in results if (r.get("epochs") or 1) >= 2]
+    if not multi_epoch:
+        msg = "epoch_consistency_analysis: no runs with epochs>=2; skipping."
+        print(msg)
+        return msg
+
+    # Build a (problem, epoch, strategy, model, correct) long-form list
+    rows = []
+    for r in multi_epoch:
+        strategy = canonical_strategy(r.get("config_name", "?"))
+        model = canonical_model(r.get("model", "?"), r.get("thinking"))
+        by_pid = defaultdict(list)
+        for s in r.get("samples", []):
+            if s.get("error"):
+                continue
+            by_pid[s["id"]].append(bool(s.get("correct")))
+        # Only keep problems with exactly the expected number of epochs
+        n_eps = r.get("epochs") or 1
+        for pid, eps in by_pid.items():
+            if len(eps) != n_eps:
+                continue
+            for ei, c in enumerate(eps, start=1):
+                rows.append((strategy, model, pid, ei, int(c)))
+    if not rows:
+        return "epoch_consistency_analysis: no usable rows."
+
+    # --- per-epoch accuracy + SD / range ---------------------------------
+    by_cell = defaultdict(list)  # (strategy, model) -> [(pid, ep, correct)]
+    for s, m, p, e, c in rows:
+        by_cell[(s, m)].append((p, e, c))
+
+    out_lines = ["── Per-epoch accuracy (deepseek multi-epoch runs) ──", ""]
+    out_lines.append(
+        f"{'strategy':<32s} {'model':<22s} {'ep1':>6s} {'ep2':>6s} {'ep3':>6s} "
+        f"{'mean':>6s} {'SD':>5s} {'range':>6s}"
+    )
+    per_epoch_summary = {}
+    for (strat, model), entries in sorted(by_cell.items()):
+        max_ep = max(e for _, e, _ in entries)
+        accs = []
+        for ep in range(1, max_ep + 1):
+            sub = [c for _, e, c in entries if e == ep]
+            accs.append(float(np.mean(sub)) if sub else float("nan"))
+        sd = float(np.std(accs, ddof=1)) if len(accs) > 1 else 0.0
+        rng = (max(accs) - min(accs)) if accs else 0.0
+        mean = float(np.mean(accs))
+        per_epoch_summary[(strat, model)] = (accs, mean, sd, rng)
+        ep_str = " ".join(f"{a*100:>5.1f}%" for a in accs[:3])
+        # pad to width 21 (3 fields × 7 chars)
+        ep_str = ep_str.ljust(21)
+        out_lines.append(
+            f"{strat:<32s} {model:<22s} {ep_str} "
+            f"{mean*100:>5.1f}% {sd*100:>4.1f}pp {rng*100:>5.1f}pp"
+        )
+    out_lines.append("")
+
+    # --- Cochran's Q on per-problem any-of-3 across prompt-only strategies ---
+    try:
+        from scipy import stats
+    except ImportError:
+        out_lines.append("Cochran's Q skipped: scipy not installed.")
+        stats = None
+    if stats is not None:
+        # Restrict to non-thinking model (the one with multiple strategies).
+        # Find the most common model across multi-epoch rows.
+        from collections import Counter
+        model_counts = Counter(m for _, m, _, _, _ in rows)
+        main_model = model_counts.most_common(1)[0][0]
+        sub = [(s, p, e, c) for s, m, p, e, c in rows if m == main_model]
+        # any-of-N per (strategy, problem)
+        any_correct = defaultdict(int)
+        all_pids = set()
+        all_strats = set()
+        for s, p, _, c in sub:
+            all_pids.add(p)
+            all_strats.add(s)
+            if c:
+                any_correct[(s, p)] = 1
+        # Build matrix N_problems x k_strategies
+        strat_list = sorted(all_strats)
+        pid_list = sorted(all_pids)
+        # Only keep problems present in all strategies (proper Cochran setup)
+        complete = [
+            p for p in pid_list
+            if all((s, p) in any_correct or (s, p) not in any_correct
+                   for s in strat_list)
+        ]
+        # Actually require every strategy to have run this problem
+        seen = defaultdict(set)
+        for s, p, _, _ in sub:
+            seen[s].add(p)
+        complete = sorted(set.intersection(*(seen[s] for s in strat_list)))
+        if len(complete) >= 5 and len(strat_list) >= 2:
+            import numpy as _np
+            M = _np.array(
+                [[any_correct.get((s, p), 0) for s in strat_list]
+                 for p in complete],
+                dtype=int,
+            )
+            n_prob = M.shape[0]
+            k = M.shape[1]
+            C = M.sum(axis=0)        # per-strategy
+            R = M.sum(axis=1)        # per-problem
+            T = int(C.sum())
+            num = (k - 1) * (k * (C ** 2).sum() - T ** 2)
+            den = k * T - (R ** 2).sum()
+            if den != 0:
+                Q = num / den
+                p_q = float(stats.chi2.sf(Q, df=k - 1))
+                out_lines.append(
+                    f"Cochran's Q (model={main_model}): "
+                    f"k={k} strategies, n={n_prob} problems, "
+                    f"Q={Q:.2f}, df={k-1}, p={p_q:.3e}"
+                )
+            else:
+                out_lines.append("Cochran's Q: degenerate (denominator 0).")
+        out_lines.append("")
+
+    # --- Paired bootstrap of per-problem mean accuracy vs generate_vars ---
+    ref = "generate_vars"
+    if any(s == ref for s, _, _, _, _ in rows):
+        # Per (strategy, problem) mean correct on the main model
+        rng_seed = 0
+        n_boot = 10000
+        from collections import Counter
+        model_counts = Counter(m for _, m, _, _, _ in rows)
+        main_model = model_counts.most_common(1)[0][0]
+        per_sp = defaultdict(list)
+        for s, m, p, _, c in rows:
+            if m != main_model:
+                continue
+            per_sp[(s, p)].append(c)
+        # build pivot
+        strat_list = sorted({s for s, _ in per_sp})
+        pid_list = sorted({p for _, p in per_sp})
+        # Only problems present in all strategies
+        seen = defaultdict(set)
+        for (s, p), _ in per_sp.items():
+            seen[s].add(p)
+        common = sorted(set.intersection(*(seen[s] for s in strat_list))) \
+            if strat_list else []
+        if common and ref in strat_list:
+            rng = np.random.default_rng(rng_seed)
+            g = np.array([np.mean(per_sp[(ref, p)]) for p in common])
+            n = len(common)
+            out_lines.append(
+                f"Paired bootstrap (model={main_model}): "
+                f"per-problem mean acc difference, "
+                f"{ref} − strategy; n={n} problems, {n_boot:,} reps"
+            )
+            out_lines.append(
+                f"  {'strategy':<32s} {'Δ (pp)':>8s} {'95% CI (pp)':>20s} "
+                f"{'p (two-sided)':>14s}"
+            )
+            # Pre-sample bootstrap indices once
+            idx = rng.integers(0, n, size=(n_boot, n))
+            for s in strat_list:
+                if s == ref:
+                    continue
+                o = np.array([np.mean(per_sp[(s, p)]) for p in common])
+                diff = g - o
+                obs = float(diff.mean())
+                boot_means = diff[idx].mean(axis=1)
+                ci_lo, ci_hi = np.percentile(boot_means, [2.5, 97.5])
+                p_one = (float((boot_means <= 0).mean()) if obs > 0
+                         else float((boot_means >= 0).mean()))
+                p_two = min(1.0, 2 * p_one)
+                out_lines.append(
+                    f"  {s:<32s} {obs*100:>+7.1f} "
+                    f"[{ci_lo*100:>+5.1f}, {ci_hi*100:>+5.1f}]   "
+                    f"{p_two:>10.4f}"
+                )
+            out_lines.append("")
+
+    # --- GEE logistic regression (cluster=problem) ----------------------
+    try:
+        import statsmodels.api as sm  # noqa: F401
+        from statsmodels.formula.api import gee
+        from statsmodels.genmod.cov_struct import Exchangeable
+        import pandas as _pd
+    except ImportError:
+        out_lines.append("GEE skipped: statsmodels not installed.")
+    else:
+        from collections import Counter
+        model_counts = Counter(m for _, m, _, _, _ in rows)
+        main_model = model_counts.most_common(1)[0][0]
+        df = _pd.DataFrame(
+            [(s, p, e, c) for s, m, p, e, c in rows if m == main_model],
+            columns=["strategy", "problem", "epoch", "correct"],
+        )
+        # Reference = generate_vars
+        ref = "generate_vars"
+        if ref in df["strategy"].unique():
+            df["strategy"] = _pd.Categorical(
+                df["strategy"],
+                categories=[ref] + sorted(
+                    s for s in df["strategy"].unique() if s != ref
+                ),
+            )
+            res = gee(
+                "correct ~ C(strategy)", "problem", data=df,
+                cov_struct=Exchangeable(),
+                family=sm.families.Binomial(),
+            ).fit()
+            out_lines.append(
+                f"GEE logistic regression (model={main_model}, "
+                f"cluster=problem; reference={ref})"
+            )
+            out_lines.append(
+                f"  {'contrast':<58s} {'log-OR':>8s} {'SE':>6s} "
+                f"{'z':>6s} {'p':>10s} {'OR':>6s}"
+            )
+            for name, b, se, z, p in zip(
+                res.params.index, res.params.values,
+                res.bse.values, res.tvalues.values, res.pvalues.values
+            ):
+                if name == "Intercept":
+                    continue
+                OR = float(np.exp(b))
+                out_lines.append(
+                    f"  {name:<58s} {b:>+7.3f} {se:>6.3f} {z:>+6.2f} "
+                    f"{p:>10.3e} {OR:>6.3f}"
+                )
+            out_lines.append("")
+
+    txt = "\n".join(out_lines)
+    print(txt)
+    (output_dir / "epoch_analysis.txt").write_text(txt + "\n")
+    print(f"  Saved: {output_dir / 'epoch_analysis.txt'}")
+    return txt
+
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze eval results")
     parser.add_argument("--results-dir", default="eval_results",
@@ -1690,9 +2766,11 @@ def main():
     # Overlap analysis
     overlap_table = ""
     disagree_table = ""
+    tokens_table = ""
     if len(results) >= 2:
         overlap_table = print_pairwise_overlap(results, threshold=args.threshold)
         disagree_table = print_disagreement_table(results, threshold=args.threshold)
+        tokens_table = print_per_problem_tokens_solved(results)
 
     # Save tables to file
     output_dir = Path(args.output_dir)
@@ -1705,12 +2783,18 @@ def main():
             f.write(overlap_table + "\n")
         if disagree_table:
             f.write(disagree_table + "\n")
+        if tokens_table:
+            f.write(tokens_table + "\n")
     print(f"\n  Saved: {output_dir / 'summary.txt'}")
 
     # LaTeX tables
     print("\nGenerating LaTeX tables...")
     generate_latex_summary(results, output_dir)
     generate_latex_per_problem(results, output_dir)
+
+    # CSV exports (matplotlib-independent)
+    if len(results) >= 2:
+        save_per_problem_tokens_csv(results, output_dir)
 
     # Plots
     if HAS_MATPLOTLIB:
@@ -1722,12 +2806,22 @@ def main():
         plot_tokens_vs_accuracy(results, output_dir)
         plot_tokens_solved(results, output_dir)
         plot_tokens_solved_by_model(results, output_dir)
+        if len(results) >= 2:
+            plot_per_problem_tokens(results, output_dir)
+            tokens_per_difficulty(results, output_dir)
+            plot_tokens_vs_difficulty_rank(results, output_dir)
+            plot_unsolved_tokens_vs_expected(results, output_dir)
+            plot_unsolved_tokens_vs_expected_by_strategy(results, output_dir)
         plot_solution_iterations(results, output_dir)
         plot_iterations(results, output_dir)
         if len(results) >= 2:
             plot_upset(results, output_dir, threshold=args.threshold)
     else:
         print("\nSkipping plots (matplotlib not installed). pip install matplotlib")
+
+    # Multi-epoch consistency + statistical tests (auto-skips if no
+    # run has epochs>=2 in the loaded results)
+    epoch_consistency_analysis(results, output_dir)
 
     # TDA creativity analysis (optional)
     if args.tda_results_dir:

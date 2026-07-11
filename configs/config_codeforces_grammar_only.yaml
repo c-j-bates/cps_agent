@@ -117,9 +117,15 @@ graph:
 
     keep_going:
       prompt: |
-        That solution was not correct. Keep going: revise it, or try a different approach (you may
-        use the grammar above). Re-examine your assumptions — which property did you misjudge, or
-        what state did you fail to discard? End your message with the complete final ```cpp solution.
+        Your last submission was judged and rejected:
+
+            {feedback}
+
+        Keep going: revise it, or try a different approach (you may use the grammar above). Use the
+        judge feedback above (which test failed and how — wrong answer, time limit exceeded, runtime
+        or compilation error) to guide the fix. Re-examine your assumptions — which property did you
+        misjudge, or what state did you fail to discard? End your message with the complete final
+        ```cpp solution.
 
   edges:
     - { from: present_grammar, to: solve }
