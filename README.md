@@ -1,10 +1,10 @@
 # CPS Agent
 
-Experimental framework for studying creative problem solving (CPS) with LLMs. This project evaluates how different prompting strategies affect an LLM's ability to solve novel problems that require the solver to simultaneously formulate and solve them, i.e. problems where the right approach isn't obvious from the start. An accompanying paper presenting results presents a formalism, from which we derive a novel prompting strategy ("generate-vars") and compare to previous general-purpose prompting strategies.
+Experimental framework for studying creative ideation in problem solving with LLMs. This project evaluates how different prompting strategies affect an LLM's ability to solve novel problems that require the solver to simultaneously formulate and solve them, i.e. problems where the right approach isn't obvious from the start. This repo accompanies our submission to EMNLP 2026.
 
 The core idea: when a problem is genuinely new to the solver, success depends not just on domain knowledge but on how the solver searches the space of possible formulations. We test this by comparing prompting strategies that structure the LLM's search process in different ways, evaluated on cryptic crossword clues and Rosetta Stone-style translation puzzles.
 
-The framework includes a graph-based multi-turn agent, an evaluation pipeline built on [Inspect AI](https://inspect.ai-safety-institute.org.uk/), and a topological data analysis (TDA) module for characterizing how different strategies explore the solution space.
+The framework includes a graph-based multi-turn agent, an evaluation pipeline built on [Inspect AI](https://inspect.ai-safety-institute.org.uk/), and an output-coding & analysis module for characterizing how different strategies explore the solution space (coding solver traces into faceted idea representations, with topological and structural features).
 
 
 ## Setup
@@ -47,17 +47,12 @@ run_experiment.py      Run a single problem (debugging / development)
 run_eval.py            Run batch evaluation via Inspect AI
 run_batch_eval.sh      Run a matrix of configs x models
 analyze_results.py     Generate comparison tables and plots from eval results
-tda_analysis_minute_cryptic/  TDA pipeline for MC cryptic-crossword experiments
-tda_analysis_rosetta/         TDA pipeline for Rosetta-Stone linguistic-puzzle experiments
+coding_analysis_minute_cryptic/  Output-coding & analysis pipeline for MC cryptic-crossword experiments
 experiment_logger.py   Per-problem conversation logging (.md and .json)
 ```
 
 
 ## Running experiments
-
-### Generating Bongard dataset
-PYTHONPATH=generators/bongard python generators/bongard/bongard_generator.py \
-    --n 100 --seed 42 --max-depth 0 --output datasets/bongard_text.csv
 
 ### Single problem (development / debugging)
 
@@ -165,50 +160,41 @@ Key settings:
 python analyze_results.py --results-dir eval_results/my-experiment
 ```
 
-Reads JSON result files and produces:
-- Summary table (accuracy, tokens, wall time, iterations per strategy and model)
-- Accuracy comparison bar chart (grouped by strategy)
-- Line plots showing solve rate as function of "keep generating" turns allowed
-- ...
+Reads JSON result files and produces various plots and charts.
 
 Output goes to `--output-dir` (default: `analysis_output/`). Requires `matplotlib`.
 
-### TDA analysis
+### Output coding & analysis
 
-The TDA modules characterize *how* different strategies explore the solution space, not just whether they find the answer. They code each solver's outputs into a faceted idea representation, build idea trees, compute topological features (via persistent homology), and compare strategies.
+The coding-analysis modules characterize how different strategies explore the solution space, not just whether they find the answer. They code each solver's outputs into a faceted idea representation, build idea trees, compute features, and compare strategies.
 
-There are two task-specific packages — pick the one that matches the experiment dataset:
+Currently exists just for the Minute Cryptic dataset:
 
-- `tda_analysis_minute_cryptic` — 4-facet schema (parse / mechanism / execution / output) for cryptic-crossword experiments.
-- `tda_analysis_rosetta` — 14-facet schema (lexicon, word orders, per-POS morphology, relative clause) for Rosetta-Stone-style linguistic puzzles.
+- `coding_analysis_minute_cryptic` — 4-facet schema (parse / mechanism / execution / output) for cryptic-crossword experiments.
+
 
 ```bash
 # Full pipeline: coding + TDA features + comparison
-python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --output-dir tda_results/my-experiment
+python -m coding_analysis_minute_cryptic experiment_logs/my-experiment --output-dir coding_results/my-experiment
 
 # Just code the solver traces (skip TDA)
-python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --code-only
+python -m coding_analysis_minute_cryptic experiment_logs/my-experiment --code-only
 
 # Just compute features from previously cached coded traces
-python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --features-only
+python -m coding_analysis_minute_cryptic experiment_logs/my-experiment --features-only
 
 # Same as above, but never call the LLM API even on a cache miss
 # (uncoded experiment dirs are skipped with a warning instead).
-python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --no-api
+python -m coding_analysis_minute_cryptic experiment_logs/my-experiment --no-api
 
 # Restrict to specific strategies
-python -m tda_analysis_minute_cryptic experiment_logs/my-experiment --strategies baseline generate_vars
-
-# Rosetta variant (same flags):
-python -m tda_analysis_rosetta experiment_logs/bigbench-rosetta --no-api
+python -m coding_analysis_minute_cryptic experiment_logs/my-experiment --strategies baseline generate_vars
 ```
 
 The pipeline has three stages:
 
-1. **Coding** (`tda_analysis_<task>/coding.py`) -- Parses experiment log markdown files and uses an LLM to code each solver turn into a structured idea tree. The facet schema is task-specific: MC uses 4 facets (parse, mechanism, execution, output); Rosetta uses 14 (lexicon + 4 word orders + 8 per-POS morphology slots + relative clause).
+1. **Coding** (`coding_analysis_<task>/coding.py`) -- Parses experiment log markdown files and uses an LLM to code each solver turn into a structured idea tree. The facet schema is task-specific: MC uses 4 facets (parse, mechanism, execution, output); Rosetta uses 14 (lexicon + 4 word orders + 8 per-POS morphology slots + relative clause).
 
-2. **Feature extraction** (`tda_analysis_<task>/features.py`) -- Computes features per (strategy, problem) pair: TDA features from Vietoris-Rips persistent homology, tree-structural features, per-facet entropy (one per facet in the schema), and distance metrics.
+2. **Feature extraction** (`coding_analysis_<task>/features.py`) -- Computes features per (strategy, problem) pair: TDA features from Vietoris-Rips persistent homology, tree-structural features, per-facet entropy (one per facet in the schema), and distance metrics.
 
-3. **Comparison** (`tda_analysis_<task>/comparison.py`) -- Aggregates features across problems, produces radar charts and summary tables comparing strategies. Also runs logistic regression (`regression.py`) to identify which features predict solve success, and gold-standard analysis (`gold_analysis.py`) to compare strategy coverage against known good solutions. (Gold analysis is currently MC-only; the Rosetta variant is stubbed — see `tda_analysis_rosetta/gold_analysis.py`.)
-
-Additional dependencies for TDA: `ripser`, `persim`, `scipy` (included in `requirements.txt`).
+3. **Comparison** (`coding_analysis_<task>/comparison.py`) -- Aggregates features across problems, produces radar charts and summary tables comparing strategies. Also runs logistic regression (`regression.py`) to identify which features predict solve success, and gold-standard analysis (`gold_analysis.py`) to compare strategy coverage against known good solutions.
