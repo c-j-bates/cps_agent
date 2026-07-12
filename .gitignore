@@ -55,5 +55,12 @@ datasets/minute_cryptic_easy.csv
 datasets/minute_cryptic_hard.csv
 datasets/minute_cryptic_medium.csv
 
+# Large / externally-sourced datasets — untracked, kept on disk locally
+datasets/bigbench-rosetta-easy.csv
+datasets/bigbench_rosetta_s229_n6x100_adj_case_caseadj_pldet.csv
+datasets/bigbench_rosetta_s229_n6x5_adj_case_caseadj_pldet.csv
+datasets/cryptics_george_ho.csv
+datasets/matharena2026.csv
+
 # OS
 .DS_Store
