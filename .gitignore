@@ -48,5 +48,12 @@ retroactive_fix*.py
 # Intermediate dataset-generation artifacts
 generators/bongard/bongard_pilot*.csv
 
+# Minute Cryptic data — copyright-encumbered, withheld from repo (kept on disk
+# locally). See datasets/minute_cryptic.sample.csv for the schema.
+datasets/minute_cryptic.csv
+datasets/minute_cryptic_easy.csv
+datasets/minute_cryptic_hard.csv
+datasets/minute_cryptic_medium.csv
+
 # OS
 .DS_Store

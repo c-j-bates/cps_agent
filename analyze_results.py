@@ -46,6 +46,11 @@ STRATEGY_ORDER = [
     "generate_vars_strict_chain",
 ]
 
+# Strategies omitted from per-strategy panel figures (solution-iterations and
+# unsolved-tokens-by-strategy). They remain in results/other outputs; this only
+# affects the paneled plots. generate_vars_strict_chain was dropped from the paper.
+PANEL_EXCLUDE_STRATEGIES = {"generate_vars_strict_chain"}
+
 MODEL_ORDER = [
     "claude-opus-4-6-instant",
     "claude-opus-4-6-thinking",
@@ -72,7 +77,6 @@ STRATEGY_DISPLAY = {
     "keep_thinking_step_by_step_repeats10": "keep-thinking-\nstep-by-step\n(extended)",
     "step_back": "step-back",
     "self_discover": "self-discover",
-    # "generate_vars": "generate-vars",
     "generate_vars": r"generate-$\Theta$",
     "generate_vars_strict_chain": "generate-$\\Theta$-\nstrict-chain",
 }
@@ -84,7 +88,6 @@ STRATEGY_DISPLAY_FLAT = {
     "keep_thinking_step_by_step_repeats10": "keep-thinking-step-by-step (extended)",
     "step_back": "step-back",
     "self_discover": "self-discover",
-    # "generate_vars": "generate-vars",
     "generate_vars": r"generate-$\Theta$",
     "generate_vars_strict_chain": r"generate-$\Theta$-strict-chain",
 }
@@ -648,6 +651,158 @@ def _aggregate_epochs(samples: list[dict]) -> dict[int | str, dict]:
             by_id[pid]["correct"] += 1
         by_id[pid]["samples"].append(s)
     return dict(by_id)
+
+
+# ---------------------------------------------------------------------------
+# Statistical significance: bootstrap accuracy CIs + paired permutation tests
+# ---------------------------------------------------------------------------
+
+def _per_problem_accuracy(run: dict) -> dict:
+    """Per-problem accuracy (fraction of epochs solved) for one run."""
+    return {pid: st["correct"] / st["total"]
+            for pid, st in _aggregate_epochs(run.get("samples", [])).items()
+            if st["total"]}
+
+
+def _run_family(raw_model: str) -> str:
+    if "opus" in raw_model:
+        return "opus"
+    if "v4-pro" in raw_model:
+        return "deepseek-v4-pro"
+    return "deepseek-v3.2"  # deepseek-chat / deepseek-reasoner
+
+
+def _is_thinking_run(run: dict) -> bool:
+    t = run.get("thinking")
+    return bool(t) and str(t).lower() not in ("false", "instant")
+
+
+def _bootstrap_mean_ci(vals, n_boot=10000, seed=0):
+    """Percentile bootstrap 95% CI for a mean. Returns (mean, lo, hi)."""
+    import numpy as np
+    a = np.asarray(list(vals), dtype=float)
+    if a.size == 0:
+        return float("nan"), float("nan"), float("nan")
+    rng = np.random.default_rng(seed)
+    boot = a[rng.integers(0, a.size, size=(n_boot, a.size))].mean(axis=1)
+    lo, hi = np.percentile(boot, [2.5, 97.5])
+    return float(a.mean()), float(lo), float(hi)
+
+
+def _paired_boot_perm(a_map, b_map, n_boot=10000, n_perm=10000, seed=0):
+    """Paired comparison of two runs' per-problem accuracy on shared problems.
+
+    Returns (delta, ci_lo, ci_hi, perm_p, n): delta = mean(a - b) over shared
+    problems, a paired percentile-bootstrap 95% CI on delta, and a two-sided
+    sign-flip permutation p (tests symmetry of the per-problem difference about
+    0 — valid for the fractional epoch-averaged accuracies). perm_p is NaN when
+    every pair is tied (e.g. both strategies at ceiling: no discordance, so the
+    test is undefined / power-limited). Returns None if no shared problems.
+    """
+    import numpy as np
+    ids = sorted(set(a_map) & set(b_map))
+    if not ids:
+        return None
+    d = np.array([a_map[i] - b_map[i] for i in ids], dtype=float)
+    obs = float(d.mean())
+    rng = np.random.default_rng(seed)
+    boot = d[rng.integers(0, d.size, size=(n_boot, d.size))].mean(axis=1)
+    lo, hi = np.percentile(boot, [2.5, 97.5])
+    if np.count_nonzero(d) == 0:
+        perm_p = float("nan")
+    else:
+        signs = rng.choice((-1.0, 1.0), size=(n_perm, d.size))
+        perm = (signs * d).mean(axis=1)
+        perm_p = float((np.abs(perm) >= abs(obs) - 1e-12).mean())
+    return obs, float(lo), float(hi), perm_p, len(ids)
+
+
+def _holm_adjust(pairs):
+    """Holm-Bonferroni. pairs: [(key, p)]. Returns {key: adj_p}; NaN p's skipped."""
+    valid = [(k, p) for k, p in pairs if p == p]
+    m = len(valid)
+    adj, running = {}, 0.0
+    for rank, (k, p) in enumerate(sorted(valid, key=lambda kp: kp[1])):
+        running = max(running, (m - rank) * p)
+        adj[k] = min(running, 1.0)
+    return adj
+
+
+def print_significance_analysis(results, n_boot=10000, n_perm=10000, seed=0) -> str:
+    """Bootstrap accuracy CIs + paired permutation tests vs GENERATE-Θ.
+
+    Grouped by LLM family within the loaded results dir (one dataset). Each
+    strategy's accuracy gets a percentile-bootstrap 95% CI; for each family the
+    paired GENERATE-Θ − competitor difference gets a paired-bootstrap 95% CI and
+    a two-sided sign-flip permutation p, Holm-corrected across the family.
+    Non-thinking GENERATE-Θ is also compared to the family's thinking/reasoning
+    baseline. Ceiling cells (all pairs tied) are flagged, not tested.
+    """
+    try:
+        import numpy  # noqa: F401
+    except ImportError:
+        msg = "\nSignificance analysis skipped (numpy not available)."
+        print(msg)
+        return msg
+
+    fam: dict = defaultdict(lambda: {"instant": {}, "thinking_base": None})
+    for r in results:
+        strat = canonical_strategy(r.get("config_name", "?"))
+        if strat in PANEL_EXCLUDE_STRATEGIES:
+            continue
+        family = _run_family(r.get("model", "?"))
+        ppa = _per_problem_accuracy(r)
+        if _is_thinking_run(r):
+            if strat == "baseline":
+                fam[family]["thinking_base"] = ppa
+        else:
+            fam[family]["instant"][strat] = ppa
+
+    lines = ["\nSignificance analysis  (accuracy: bootstrap 95% CI;  "
+             "GENERATE-Θ vs X: paired Δ with bootstrap 95% CI + "
+             "sign-flip permutation p, Holm-corrected)"]
+    for family in sorted(fam):
+        instant = fam[family]["instant"]
+        tbase = fam[family]["thinking_base"]
+        if not instant:
+            continue
+        n = max((len(v) for v in instant.values()), default=0)
+        lines.append(f"\n  Family {family}  (n={n})")
+        for s in sorted(instant, key=_strategy_sort_key):
+            m, lo, hi = _bootstrap_mean_ci(instant[s].values(), n_boot, seed)
+            lines.append(f"    {s:<34} {m:>6.1%}   [{lo:.1%}, {hi:.1%}]")
+        if tbase is not None:
+            m, lo, hi = _bootstrap_mean_ci(tbase.values(), n_boot, seed)
+            lines.append(f"    {'baseline (thinking)':<34} {m:>6.1%}   [{lo:.1%}, {hi:.1%}]")
+
+        if "generate_vars" not in instant:
+            continue
+        gv = instant["generate_vars"]
+        comps = []
+        for s in sorted(instant, key=_strategy_sort_key):
+            if s == "generate_vars":
+                continue
+            res = _paired_boot_perm(gv, instant[s], n_boot, n_perm, seed)
+            if res:
+                comps.append((f"vs {s}", res))
+        if tbase is not None:
+            res = _paired_boot_perm(gv, tbase, n_boot, n_perm, seed)
+            if res:
+                comps.append(("vs baseline (thinking)", res))
+        holm = _holm_adjust([(k, r[3]) for k, r in comps])
+        lines.append("    -- GENERATE-Θ minus X --")
+        for k, (delta, lo, hi, p, kn) in comps:
+            if p != p:
+                tail = "   (all tied — power-limited)"
+            else:
+                padj = holm.get(k, float("nan"))
+                star = "*" if padj < 0.05 else " "
+                tail = f"   perm p={p:.3f}  Holm p={padj:.3f} {star}"
+            lines.append(f"    {k:<34} Δ={delta:>+6.1%}  [{lo:+.1%}, {hi:+.1%}]{tail}")
+
+    out = "\n".join(lines)
+    print(out)
+    return out
 
 
 def _build_epoch_rates(results: list[dict]) -> tuple[list[str], dict[str, dict]]:
@@ -1519,6 +1674,8 @@ def plot_unsolved_tokens_vs_expected_by_strategy(results: list[dict],
         per_cell: dict[tuple[str, str], dict] = {}
         for s_label in by_family_all[family]:
             strategy, _ = s_label.split("|", 1)
+            if strategy in PANEL_EXCLUDE_STRATEGIES:
+                continue
             variant = "thinking" if _is_thinking_variant(s_label) else "instant"
             key = (strategy, variant)
             cell = per_cell.setdefault(key, {
@@ -1974,7 +2131,7 @@ def plot_solution_iterations(results: list[dict], output_dir: Path):
 
     for r in results:
         strategy = canonical_strategy(r.get("config_name", "?"))
-        if strategy == "baseline":
+        if strategy == "baseline" or strategy in PANEL_EXCLUDE_STRATEGIES:
             continue
         model = canonical_model(r.get("model", "?"), r.get("thinking"))
         samples = r.get("samples", [])
@@ -2437,6 +2594,11 @@ def main():
     if len(results) >= 2:
         tokens_table = print_per_problem_tokens_solved(results)
 
+    # Statistical significance (bootstrap accuracy CIs + paired permutation)
+    significance_table = ""
+    if len(results) >= 2:
+        significance_table = print_significance_analysis(results)
+
     # Save tables to file
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -2446,6 +2608,8 @@ def main():
         f.write(problem_table + "\n")
         if tokens_table:
             f.write(tokens_table + "\n")
+        if significance_table:
+            f.write(significance_table + "\n")
     print(f"\n  Saved: {output_dir / 'summary.txt'}")
 
     # LaTeX tables
